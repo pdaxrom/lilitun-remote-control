@@ -1,0 +1,9 @@
+Copy cert.pem, privkey.pem to this directory.
+
+Create merged.pem file:
+
+  cat cert.pem privkey.pem >merged.pem
+
+Create self-signed certificate:
+
+  openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout privkey.pem -out cert.pem

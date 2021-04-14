@@ -1,0 +1,66 @@
+#!/bin/bash
+set -x
+
+echo "Running docker_build script for remote-control build..."
+
+script_error="##SCRIPT ERROR##"
+
+check_error() {
+
+  if [ $? -eq 0 ]; then
+    echo $1 " check_error success!"
+  else
+    echo $1 " check_error error!"
+    echo $script_errror
+    exit 1
+  fi
+}
+
+docker image inspect lilitun/remote-control-build:1.0 &>/dev/null
+if [ $? -ne 0 ]; then
+    cp -R thirdparty/bomutils docker-build
+    docker build -t lilitun/remote-control-build:1.0 docker-build
+    check_error "docker build -t lilitun/remote-control-build:1.0 ."
+
+    docker image prune --filter label=stage=osxcross --force
+    rm -rf docker-build/bomutils
+fi
+
+docker run -ti --rm -v $PWD:/root/src lilitun/remote-control-build:1.0
+check_error "docker run -ti --rm -v $PWD/..:/root/src lilitun/remote-control-build:1.0"
+
+
+docker run -ti --rm -v $PWD:/root/src lilitun/remote-control-build:1.0 ./build.sh Windows
+check_error "docker run -ti --rm -v $PWD:/root/src lilitun/remote-control-build:1.0 ./build.sh Windows"
+
+
+docker run -ti --rm -v $PWD:/root/src lilitun/remote-control-build:1.0 ./build.sh MacOS
+check_error "run -ti --rm -v $PWD:/root/src lilitun/remote-control-build:1.0 ./build.sh MacOS"
+
+#docker rmi lilitun/remote-control-build:1.0
+
+echo "LiliTun remote control build completed successfully!!"
+
+docker image inspect lilitun/remote-control-server:1.0 &>/dev/null
+if [ $? -eq 0 ]; then
+    ID=$(docker ps -q --filter ancestor=lilitun/remote-control-server:1.0)
+
+    if [ "$ID" != "" ]; then
+        docker stop $ID
+    fi
+
+    docker image rm -f lilitun/remote-control-server:1.0
+fi
+
+cp -R release docker-run
+mv -f docker-run/release/linux/controlserver_1.0_amd64.deb docker-run
+cp -R ControlServer/web docker-run
+
+docker build -t lilitun/remote-control-server:1.0 docker-run
+check_error "docker build -t lilitun/remote-control-server:1.0 ."
+
+rm -f  docker-run/controlserver_1.0_amd64.deb
+rm -rf docker-run/web
+rm -rf docker-run/release
+
+echo "LiliTun remote control server completed successfully!!"

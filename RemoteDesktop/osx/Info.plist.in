@@ -1,0 +1,47 @@
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleDisplayName</key>
+    <string>LiliTun remote control</string>
+    <key>CFBundleExecutable</key>
+    <string>lilitun-remote-control</string>
+    <key>CFBundleIconFile</key>
+    <string>Projector.icns</string>
+    <key>CFBundleIdentifier</key>
+    <string>projector</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>LiliTun remote control</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>lilink</string>
+        </array>
+      </dict>
+    </array>
+    <!-- TODO: Fix this in v2.0 //-->
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>LiliTun remote control</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>hiti</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@VERSION@</string>
+    <key>CFBundleVersion</key>
+    <string>@VERSION@</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <string>True</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2021, pdaXrom team</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.9.0</string>
+  </dict>
+</plist>

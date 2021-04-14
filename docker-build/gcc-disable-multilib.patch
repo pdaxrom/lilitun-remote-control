@@ -1,0 +1,20 @@
+diff --git a/build_gcc.sh b/build_gcc.sh
+index 6cc13bd..41d48ac 100755
+--- a/build_gcc.sh
++++ b/build_gcc.sh
+@@ -128,11 +128,11 @@ if [ -n "$ENABLE_FORTRAN" ]; then
+   LANGS+=",fortran"
+ fi
+ 
+-if [ $(osxcross-cmp $SDK_VERSION "<=" 10.13) -eq 1 ]; then
+-  EXTRACONFFLAGS+="--with-multilib-list=m32,m64 --enable-multilib "
+-else
++#if [ $(osxcross-cmp $SDK_VERSION "<=" 10.13) -eq 1 ]; then
++#  EXTRACONFFLAGS+="--with-multilib-list=m32,m64 --enable-multilib "
++#else
+   EXTRACONFFLAGS+="--disable-multilib "
+-fi
++#fi
+ 
+ ../configure \
+   --target=x86_64-apple-$TARGET \

@@ -1,0 +1,12 @@
+Source: controlserver
+Section: net
+Priority: optional
+Maintainer: sashz <sashz@pdaXrom.org>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 1.0
+Homepage: https://www.pdaXrom.org
+
+Package: controlserver
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: LiliTun remote desktop sharing control server.

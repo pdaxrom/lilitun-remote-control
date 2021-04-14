@@ -1,0 +1,62 @@
+#! /bin/sh
+
+set -e
+
+case "$1" in
+    configure)
+	if [ "$INSIDE_DOCKER" != "yes" ]; then
+	    . /usr/share/debconf/confmodule
+
+	    sed -i -e 's/^certfile .*$/# certfile cert1.pem/' /etc/controlserver/controlserver.conf
+	    sed -i -e 's/^keyfile .*$/# keyfile priv1.pem/' /etc/controlserver/controlserver.conf
+	    sed -i -e 's/^controlport .*$/# projectorport 9996/' /etc/controlserver/controlserver.conf
+	    sed -i -e 's/^projectorport .*$/# projectorport 9998/' /etc/controlserver/controlserver.conf
+	    sed -i -e 's/^clientport .*$/# clientport 10000/' /etc/controlserver/controlserver.conf
+	    sed -i -e 's/^clientportsize .*$/# clientportsize 512/' /etc/controlserver/controlserver.conf
+
+	    # Check their answer.
+	    db_get controlserver/certfile || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# certfile cert1.pem|certfile $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+	    db_get controlserver/keyfile || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# keyfile priv1.pem|keyfile $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+	    db_get controlserver/controlport || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# controlport 9996|controlport $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+	    db_get controlserver/projectorport || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# projectorport 9998|projectorport $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+	    db_get controlserver/clientport || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# clientport 10000|clientport $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+	    db_get controlserver/clientportsize || true
+	    if [ "$RET" != "" ]; then
+		sed -i -e "s|# clientportsize 512|clientportsize $RET|g" /etc/controlserver/controlserver.conf
+	    fi
+
+	    systemctl daemon-reload
+	fi
+    ;;
+    upgrade)
+	if [ "$INSIDE_DOCKER" != "yes" ]; then
+	    systemctl daemon-reload
+	fi
+    ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 0
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,23 @@
+Template: controlserver/certfile
+Type: string
+Description: Certificate file with path
+
+Template: controlserver/keyfile
+Type: string
+Description: Private key file with path
+
+Template: controlserver/controlport
+Type: string
+Description: Control port
+
+Template: controlserver/projectorport
+Type: string
+Description: Projector connection port
+
+Template: controlserver/clientport
+Type: string
+Description: First client connection port
+
+Template: controlserver/clientportsize
+Type: string
+Description: Number of client connections

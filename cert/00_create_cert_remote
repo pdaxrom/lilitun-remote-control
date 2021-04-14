@@ -1,0 +1,7 @@
+rm privkey.pem cert.pem merged.pem
+
+openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout privkey.pem -out cert.pem \
+   -subj "/C=US/ST=New York/L=New York/O=Remote/OU=IT/CN=remote.myhost.net"
+
+cat cert.pem privkey.pem >merged.pem
+

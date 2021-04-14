@@ -1,0 +1,14 @@
+[Unit]
+Description=LiliTun remote desktop sharing control server
+After=network.target
+
+[Service]
+WorkingDirectory=/etc/controlserver
+ExecStart=/usr/bin/controlserver
+TimeoutStopSec=5
+KillSignal=INT
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target

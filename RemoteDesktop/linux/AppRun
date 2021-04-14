@@ -1,0 +1,14 @@
+#!/bin/bash
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+
+if which xdg-desktop-menu &>/dev/null; then
+    cp -f ${HERE}/lilitun-remote-control.desktop /tmp/lilitun-remote-control.desktop
+    sed -i -e "s|Exec=lilitun-remote-control|Exec=$APPIMAGE|" /tmp/lilitun-remote-control.desktop
+    xdg-desktop-menu uninstall /tmp/lilitun-remote-control.desktop
+    xdg-desktop-menu install   /tmp/lilitun-remote-control.desktop
+fi
+
+export LD_LIBRARY_PATH="${HERE}/usr/lib"
+
+exec "${HERE}/usr/bin/lilitun-remote-control" "$@"

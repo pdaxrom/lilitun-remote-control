@@ -1,0 +1,276 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0304
+header_name {.h}
+code_name {.cxx}
+decl {\#include <stdio.h>} {private global
+}
+
+decl {\#include <unistd.h>} {private local
+}
+
+decl {\#include <stdarg.h>} {private local
+}
+
+decl {\#include <pthread.h>} {private local
+}
+
+decl {\#include <simple-connection/tcp.h>} {private local
+}
+
+decl {\#include <FL/fl_ask.H>} {private local
+}
+
+decl {\#include <FL/Fl_PNG_Image.H>} {private local
+}
+
+decl {\#include "projector.h"} {private local
+}
+
+decl {\#include "../Common/protos.h"} {private local
+}
+
+decl {Fl_PNG_Image *logo = NULL;} {private local
+}
+
+decl {Fl_PNG_Image *logo_gray = NULL;} {private local
+}
+
+decl {extern const char *json_requestType;} {private global
+}
+
+decl {extern const char *json_appServerUrl;} {private local
+}
+
+decl {extern const char *json_controlServerUrl;} {private global
+}
+
+decl {extern const int json_controlServerPort;} {private local
+}
+
+decl {extern const char *json_sessionId;} {private local
+}
+
+decl {const char *REMOTE_ROOM = "remote.lilitun.link";} {private local
+}
+
+decl {int REMOTE_PORT = 9998;} {private local
+}
+
+decl {int user_port = -1;} {private local
+}
+
+decl {char *user_password = NULL;} {private local
+}
+
+decl {char *error_string = NULL;} {private local
+}
+
+decl {pthread_t tid;} {private local
+}
+
+decl {int is_started = 0;} {private local
+}
+
+decl {Fl_Text_Buffer *log_buf = NULL;} {private local
+}
+
+decl {typedef struct { int err; char *cert; int ret; } ssl_verify_data;} {private global
+}
+
+Function {set_error(char *str)} {open private C return_type void
+} {
+  code {//Fl::lock();
+//status_string->value(str);
+//Fl::unlock();
+//Fl::flush();
+fprintf(stderr, "status: %s\\n", str);} {}
+}
+
+Function {show_error()} {open private
+} {
+  code {fl_message_title("Error");
+fl_choice(error_string, fl_yes, NULL, NULL);} {}
+}
+
+Function {error_for_exit(char *str)} {open C return_type void
+} {
+  code {if (error_string) {
+    free(error_string);
+}
+error_string = strdup(str);} {}
+}
+
+Function {set_user_password(char *str)} {open private C return_type void
+} {
+  code {fprintf(stderr, "User password is %s\\n", str);
+if (user_password) {
+    free(user_password);
+}
+user_password = strdup(str);
+
+Fl::lock();
+//set_logo(0);
+//copy_url_button->show();
+Fl::unlock();
+Fl::flush();} {}
+}
+
+Function {set_user_connection(int port, int ipv6port)} {open return_type void
+} {
+  code {fprintf(stderr, "User connection port is %d\\n", port);
+user_port = port;} {}
+}
+
+Function {set_ssl_verify_cb(void *u)} {open private return_type void
+} {
+  code {ssl_verify_data *data = (ssl_verify_data *)u;
+
+fl_message_title("Remote host certificate error");
+data->ret = fl_choice("Error %d\\n%s\\nContinue?", fl_yes, fl_no, NULL, data->err, data->cert);} {}
+}
+
+Function {set_ssl_verify(int err, char *cert)} {open private return_type int
+} {
+  code {ssl_verify_data data = {
+	.err = err,
+	.cert = cert,
+	.ret = -1
+};
+
+Fl::lock();
+Fl::awake(set_ssl_verify_cb, &data);
+Fl::unlock();
+
+while (data.ret == -1) {
+	sleep(1);
+}
+
+return (data.ret == 0) ? 1: 0;} {selected
+  }
+}
+
+Function {projector_thread(void *arg)} {open private return_type {void *}
+} {
+  code {struct projector_t *projector = (struct projector_t *)arg;
+
+projector_connect(projector, json_controlServerUrl, json_controlServerPort,
+	json_appServerUrl, json_sessionId, &is_started);
+
+projector_finish(projector);
+
+Fl::lock();
+//set_logo(1);
+//copy_url_button->hide();
+share_button->label("Start remote control");
+share_button->clear();
+share_button->redraw();
+Fl::unlock();
+Fl::flush();
+
+return NULL;} {}
+}
+
+Function {projector_start()} {open private return_type int
+} {
+  code {struct projector_t *projector = projector_init();
+if (!projector) {
+    if (error_string) {
+    	fl_message_title("Error");
+    	fl_choice(error_string, "Close", NULL, NULL);
+    	free(error_string);
+    	exit(1);
+    }
+    return false;
+}
+
+projector->connection_method = CONNECTION_METHOD_WS;
+projector->cb_error = set_error;
+projector->cb_user_password = set_user_password;
+projector->cb_user_connection = set_user_connection;
+projector->cb_ssl_verify = set_ssl_verify;
+
+is_started = true;
+
+share_button->label("Stop remote control");
+if (pthread_create(&tid, NULL, &projector_thread, projector) != 0) {
+    is_started = false;
+    share_button->label("Start remote control");
+    return false;
+}
+
+return true;} {}
+}
+
+Function {projector_stop()} {open private return_type void
+} {
+  code {is_started = false;} {}
+}
+
+Function {init_gui()} {open
+} {
+  Fl_Window win_main {
+    label {LiliTun remote control} open
+    xywh {1257 402 250 225} type Double hide
+    code0 {Fl_PNG_Image *icon = new Fl_PNG_Image(NULL, logo_data, sizeof(logo_data));}
+    code1 {win_main->icon(icon);}
+  } {
+    Fl_Light_Button share_button {
+      label {Start remote control}
+      callback {if (o->value() == 1) {
+	fprintf(stderr, "Turn on\\n");
+	if (!projector_start()) {
+		o->clear();
+	}
+} else {
+	fprintf(stderr, "Turn off\\n");
+	o->set();
+	projector_stop();
+}}
+      xywh {5 5 210 25} selection_color 1 align 16
+      code0 {share_button->clear_visible_focus();}
+    }
+    Fl_Text_Display log_window {
+      xywh {5 35 240 185} hide
+      code0 {if (!log_buf) { log_buf = new Fl_Text_Buffer(); }}
+      code1 {log_window->buffer(log_buf);}
+    }
+    Fl_Button log_button {
+      callback {if (log_window->visible()) {
+	log_window->hide();
+	win_main->resize(win_main->x(), win_main->y(), win_main->w(), 35);
+} else {
+	log_window->show();
+	win_main->resize(win_main->x(), win_main->y(), win_main->w(), 225);
+}}
+      image {icons8-log-24.png} xywh {220 5 25 25} align 16
+      code0 {log_button->clear_visible_focus();}
+    }
+  }
+}
+
+data logo_data {public local filename {lilitun-remote-desktop-color.png}
+}
+
+declblock {\#ifdef _WIN32} {open after {\#endif}
+} {
+  decl {\#define vsnprintf vsprintf_s} {private local
+  }
+}
+
+Function {write_log(const char *fmt, ...)} {open C return_type void
+} {
+  code {char message[2048];
+va_list ap;
+
+va_start(ap, fmt);
+vsnprintf(message, sizeof(message), fmt, ap);
+va_end(ap);
+
+if (!log_buf) {
+	log_buf = new Fl_Text_Buffer();
+}
+
+fprintf(stderr, "%s", message);
+
+log_buf->append(message);} {}
+}

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=@VERSION@
+Name=lilitun-remote-control
+GenericName=LiliTun remote control
+GenericName[ru]=LiliTun удаленное управление
+Comment=Share desktop with remote users
+Comment[ru]=Делитесь рабочим столом с удаленными пользователями
+Exec=lilitun-remote-control %u
+Icon=lilitun-remote-desktop-color
+Terminal=false
+Type=Application
+Categories=Network;
+MimeType=x-scheme-handler/lilink;

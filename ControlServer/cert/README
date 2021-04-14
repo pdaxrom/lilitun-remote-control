@@ -1,0 +1,1 @@
+Keep in mind, that to connect to vnc ssl websocket, the certificates must be the same as for the web client's site.

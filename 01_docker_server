@@ -1,0 +1,37 @@
+#!/bin/bash
+set -x
+
+echo "Running docker_server script for remote-control server..."
+
+script_error="##SCRIPT ERROR##"
+
+check_error() {
+
+  if [ $? -eq 0 ]; then
+    echo $1 " check_error success!"
+  else
+    echo $1 " check_error error!"
+    echo $script_errror
+    exit 1
+  fi
+}
+
+if [ ! -e cert/cert.pem -o ! -e cert/privkey.pem ]; then
+    echo "ERROR: copy cert.pem and privkey.pem to cert/ directory!"
+
+    echo "Or create a self-signed certificate using the command:"
+    echo "openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout cert/privkey.pem -out cert/cert.pem"
+
+    exit 1
+fi
+
+if [ "$REMOTE_HOST_NAME" = "" ]; then
+    REMOTE_HOST_NAME=$(hostname)
+fi
+
+docker run -ti --rm -e HOST_NAME=$REMOTE_HOST_NAME -h $REMOTE_HOST_NAME -v $PWD/cert:/cert -p 443:443 lilitun/remote-control-server:1.0
+check_error "docker run -ti --rm -e HOST_NAME=$REMOTE_HOST_NAME -h $REMOTE_HOST_NAME -v $PWD/cert:/cert -p 443:443 lilitun/remote-control-server:1.0"
+
+#docker rmi lilitun/remote-control-server:1.0
+
+echo "LiliTun remote control server finished successfully!!"
