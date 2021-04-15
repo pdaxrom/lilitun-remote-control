@@ -11,6 +11,7 @@
 #include "getrandom.h"
 #include "base64.h"
 #include "projector.h"
+#include "../thirdparty/lz4/lz4.h"
 
 /*****************************************************************************/
 
@@ -278,10 +279,23 @@ static void screen_diff(struct projector_t *projector, void *framebuffer, int re
 	uint32_t pixfmt = PIX_JPEG_BGRA;
 
 	if (outlen > rect_width * rect_height * 4) {
-//	    write_log("compressed size (%d) > uncompressed(%d - [%d, %d])\n", outlen, rect_width * rect_height * 4, rect_width, rect_height);
 	    free(outbuffer);
+
+//	    write_log("compressed size (%d) > uncompressed(%d - [%d, %d])\n", outlen, rect_width * rect_height * 4, rect_width, rect_height);
 	    outbuffer = get_raw_screen_data(projector, projector->varblock.min_x, projector->varblock.min_y, rect_width, rect_height, &outlen);
 	    pixfmt = PIX_RAW_BGRA;
+
+	    char *tmpbuf = (char *) malloc(outlen);
+	    int tmplen = LZ4_compress_default(outbuffer, tmpbuf, outlen, outlen);
+
+	    if (tmplen > 0 && tmplen < outlen) {
+		free(outbuffer);
+		outbuffer = tmpbuf;
+		outlen = tmplen;
+		pixfmt = PIX_LZ4_BGRA;
+	    } else {
+		free(tmpbuf);
+	    }
 	}
 
 //	write_log("Update header\n");

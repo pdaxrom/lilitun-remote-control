@@ -22,6 +22,8 @@ enum {
     PIX_RAW_BGRA,
     PIX_JPEG_RGBA,
     PIX_JPEG_BGRA,
+    PIX_LZ4_RGBA,
+    PIX_LZ4_BGRA
 };
 
 #if _WIN32

@@ -15,6 +15,7 @@ struct remote_connection_t;
 #include "getrandom.h"
 #include "messaging.h"
 #include "utils.h"
+#include "../thirdparty/lz4/lz4.h"
 #include "config.h"
 
 struct control_t {

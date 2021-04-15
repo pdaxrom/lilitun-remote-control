@@ -488,6 +488,18 @@ static void *remote_connection_thread(void *arg)
 			    fprintf(stderr, "error decompressing jpeg\n");
 			    break;
 			}
+		    } else if (pixfmt == PIX_LZ4_BGRA || pixfmt == PIX_LZ4_RGBA) {
+			int rawLen = rawWidth * rawHeight * 4;
+			rawImage = (unsigned char *) malloc(rawLen);
+			if (LZ4_decompress_safe(pixdata, rawImage, pixlen, rawLen) <= 0) {
+			    free(rawImage);
+			    conn->thread_alive = 0;
+			    fprintf(stderr, "error decompressing lz4\n");
+			    break;
+			}
+			rawWidth = width;
+			rawHeight = height;
+			rawPixelSize = 4;
 		    } else if (pixfmt == PIX_RAW_BGRA || pixfmt == PIX_RAW_RGBA) {
 			rawImage = pixdata;
 			rawWidth = width;
