@@ -11,7 +11,8 @@ if (@$_SESSION['sessionId']) {
 
     $row = $dbase->query(
 "SELECT Sessions.appServer as appServer, Sessions.controlServer as controlServer, Projectors.clientPort as clientPort,".
-" Projectors.clientIpv6Port as clientIpv6Port, Projectors.clientPassword as clientPassword, Projectors.startTime as startTime".
+" Projectors.clientIpv6Port as clientIpv6Port, Projectors.clientPassword as clientPassword, Projectors.startTime as startTime,".
+" Projectors.hostname as host".
 " FROM Sessions, Projectors WHERE Projectors.sessionId = '$sessionId'".
 " AND Sessions.sessionId = '$sessionId'"
 )->fetch();
@@ -24,7 +25,7 @@ if (@$_SESSION['sessionId']) {
 "host={$row['controlServer']}&port=443&resize=scale&encrypt=1&password={$row['clientPassword']}&".
 "path=/websockify?token={$row['clientPort']}";
 ?>
-<a href="<?php echo $link; ?>" target="_blank">Users can connect to the shared desktop via this link</a><br>
+<a href="<?php echo $link; ?>" target="_blank">Users can connect to the shared desktop <?php echo $row['host'];?> via this link</a><br>
 <a href="" onclick="loadFile('/control.php?requestType=stopSharing&sessionId=<?php echo $sessionId;?>'); return false;">Click this link to stop desktop sharing</a>
 <?php
     }

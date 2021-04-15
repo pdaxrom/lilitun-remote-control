@@ -34,6 +34,7 @@ try {
     $dbase->exec("CREATE TABLE IF NOT EXISTS Projectors(".
 	"id INTEGER PRIMARY KEY,".
 	"sessionId TEXT,".
+	"hostname TEXT,".
 	"clientPort,".
 	"clientIpv6Port,".
 	"clientPassword,".
@@ -56,6 +57,7 @@ if (@$_REQUEST['action']) {
 	if ($requestType === 'remoteControlStart' || $requestType === 'remoteControlStop') {
 	    $sessionId = addslashes($data->sessionId);
 	    if ($requestType === 'remoteControlStart' && @$data->port && @$data->ipv6port && @$data->password) {
+		$host = addslashes($data->hostname);
 		$port = $data->port;
 		$ipv6port = $data->ipv6port;
 		$password = addslashes($data->password);
@@ -63,8 +65,8 @@ if (@$_REQUEST['action']) {
 		    $sessionId_check = $dbase->query("SELECT sessionId FROM Sessions WHERE sessionId='$sessionId'");
 		    if ($sessionId_check) {
 			$time = time();
-			$dbase->exec("INSERT INTO Projectors(sessionId, clientPort, clientIpv6Port, clientPassword, startTime)".
-" VALUES('$sessionId', $port, $ipv6port, '$password', '$time')");
+			$dbase->exec("INSERT INTO Projectors(sessionId, hostname, clientPort, clientIpv6Port, clientPassword, startTime)".
+" VALUES('$sessionId', '$hostname', $port, $ipv6port, '$password', '$time')");
 			http_response_code(200);
 
 			$content = $port.': 127.0.0.1:'.$port;
