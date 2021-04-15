@@ -402,6 +402,32 @@ static int send_req_session_id(struct projector_t *projector, const char *sessio
     return 1;
 }
 
+static int send_req_hostname(struct projector_t *projector)
+{
+    char host[256];
+
+    if (!gethostname(host, sizeof(host))) {
+	strcpy(host, "Unknown");
+    }
+
+    int len = strlen(host);
+
+    req_hostname data = {
+	.req = htonl(REQ_HOSTNAME),
+	.length = htonl(len)
+    };
+
+    if (tcp_write_all(projector, (char *)&data, sizeof(data)) != sizeof(data)) {
+	return 0;
+    }
+
+    if (tcp_write_all(projector, host, len) != len) {
+	return 0;
+    }
+
+    return 1;
+}
+
 static int recv_user_password(struct projector_t *projector)
 {
     uint32_t length = 0;
@@ -549,6 +575,10 @@ void projector_connect(struct projector_t *projector, const char *host, int port
 			}
 		    } else if (req == REQ_SESSION_ID) {
 			if (!send_req_session_id(projector, session_id)) {
+			    break;
+			}
+		    } else if (req == REQ_HOSTNAME) {
+			if (!send_req_hostname(projector)) {
 			    break;
 			}
 		    } else if (req == REQ_SCREEN_UPDATE) {

@@ -57,6 +57,7 @@ struct remote_connection_t {
     int ipv6port;
     char *apphost;
     char *session_id;
+    char *hostname;
     int thread_alive;
     struct translator_t *translator;
     pthread_t tid;

@@ -157,6 +157,30 @@ static char *do_req_session_id(tcp_channel * channel)
     return str;
 }
 
+static char *do_req_hostname(tcp_channel * channel)
+{
+    if (!do_req_initial(channel, REQ_HOSTNAME)) {
+	return NULL;
+    }
+
+    uint32_t len;
+
+    if (!recv_uint32(channel, &len)) {
+	return NULL;
+    }
+
+    char *str = (char *) malloc(len + 1);
+
+    if (tcp_read_all(channel, str, len) != len) {
+	free(str);
+	return NULL;
+    }
+
+    str[len] = 0;
+
+    return str;
+}
+
 int do_req_screen_info(tcp_channel *channel, struct screen_info_t *screen_info)
 {
     if (!do_req_initial(channel, REQ_SCREEN_INFO)) {
@@ -378,20 +402,23 @@ static void *remote_connection_thread(void *arg)
 
 	    conn->apphost = NULL;
 	    conn->session_id = NULL;
+	    conn->hostname = NULL;
 
 	    pthread_mutex_lock(&conn->projector_io_mutex);
 	    if ((conn->apphost = do_req_appserver_host(conn->channel)) &&
 		(conn->session_id = do_req_session_id(conn->channel)) &&
+		(conn->hostname = do_req_session_id(conn->channel)) &&
 		send_user_connection(conn->channel, conn->port, conn->ipv6port) &&
 		send_user_password(conn->channel, conn->passwds[0])) {
 		if ((conn->translator = translator_init(conn, keyboard_event, pointer_event))) {
 		    fprintf(stderr, "apphost %s\n", conn->apphost);
 		    fprintf(stderr, "session id %s\n", conn->session_id);
+		    fprintf(stderr, "hostname %s\n", conn->hostname);
 		    fprintf(stderr, "remote users passwd %s\n", conn->passwds[0]);
 		    conn->thread_alive = 1;
 		    char msg[1024];
-		    snprintf(msg, sizeof(msg), "{\"requestType\":\"remoteControlStart\",\"sessionId\":\"%s\",\"port\":\"%d\",\"ipv6port\":\"%d\",\"password\":\"%s\"}",
-				conn->session_id, conn->port, conn->ipv6port, conn->passwds[0]);
+		    snprintf(msg, sizeof(msg), "{\"requestType\":\"remoteControlStart\",\"sessionId\":\"%s\",\"hostname\":\"%s\",\"port\":\"%d\",\"ipv6port\":\"%d\",\"password\":\"%s\"}",
+				conn->session_id, conn->hostname, conn->port, conn->ipv6port, conn->passwds[0]);
 		    if (!message_send(conn->apphost, msg)) {
 			fprintf(stderr, "Appserver unavailable, close remote sharing!\n");
 			conn->thread_alive = 0;
@@ -516,6 +543,10 @@ static void *remote_connection_thread(void *arg)
 
     if (conn->session_id) {
 	free(conn->session_id);
+    }
+
+    if (conn->hostname) {
+	free(conn->hostname);
     }
 
     if (conn->framebuffer) {

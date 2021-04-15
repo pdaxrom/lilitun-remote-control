@@ -155,7 +155,7 @@ struct translator_t *translator_init(struct remote_connection_t *conn,
 	return NULL;
     }
 
-    translator->server->desktopName = "Remote desktop";
+    translator->server->desktopName = conn->hostname;
     translator->server->frameBuffer = (char *)translator->framebuffer_vnc;
     translator->server->alwaysShared = TRUE;
     translator->server->httpDir = conn->httpdir;
