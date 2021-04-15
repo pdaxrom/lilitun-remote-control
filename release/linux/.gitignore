@@ -1,0 +1,7 @@
+*.deb
+*.AppImage
+*.rpm
+*.pkg
+*.gz
+*.bz2
+*.xz
