@@ -66,7 +66,7 @@ if (@$_REQUEST['action']) {
 		    if ($sessionId_check) {
 			$time = time();
 			$dbase->exec("INSERT INTO Projectors(sessionId, hostname, clientPort, clientIpv6Port, clientPassword, startTime)".
-" VALUES('$sessionId', '$hostname', $port, $ipv6port, '$password', '$time')");
+" VALUES('$sessionId', '$host', $port, $ipv6port, '$password', '$time')");
 			http_response_code(200);
 
 			$content = $port.': 127.0.0.1:'.$port;

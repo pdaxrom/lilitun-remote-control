@@ -407,7 +407,7 @@ static void *remote_connection_thread(void *arg)
 	    pthread_mutex_lock(&conn->projector_io_mutex);
 	    if ((conn->apphost = do_req_appserver_host(conn->channel)) &&
 		(conn->session_id = do_req_session_id(conn->channel)) &&
-		(conn->hostname = do_req_session_id(conn->channel)) &&
+		(conn->hostname = do_req_hostname(conn->channel)) &&
 		send_user_connection(conn->channel, conn->port, conn->ipv6port) &&
 		send_user_password(conn->channel, conn->passwds[0])) {
 		if ((conn->translator = translator_init(conn, keyboard_event, pointer_event))) {

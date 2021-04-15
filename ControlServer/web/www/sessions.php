@@ -25,7 +25,7 @@ if (@$_SESSION['sessionId']) {
 "host={$row['controlServer']}&port=443&resize=scale&encrypt=1&password={$row['clientPassword']}&".
 "path=/websockify?token={$row['clientPort']}";
 ?>
-<a href="<?php echo $link; ?>" target="_blank">Users can connect to the shared desktop <?php echo $row['host'];?> via this link</a><br>
+<a href="<?php echo $link; ?>" target="_blank">Users can connect to the shared desktop '<?php echo "{$row['host']}";?>' via this link</a><br>
 <a href="" onclick="loadFile('/control.php?requestType=stopSharing&sessionId=<?php echo $sessionId;?>'); return false;">Click this link to stop desktop sharing</a>
 <?php
     }
