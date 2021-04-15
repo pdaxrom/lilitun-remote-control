@@ -53,6 +53,7 @@ POST data is json data:
   {
     "requestType" : "remoteControlStart",
     "sessionId"   : "sessionId",
+    "hostname"    : "hostname",
     "port"        : "port",
     "ipv6port"    : "ipv6port",
     "password"    : "password"   
