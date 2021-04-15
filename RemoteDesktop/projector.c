@@ -406,7 +406,7 @@ static int send_req_hostname(struct projector_t *projector)
 {
     char host[256];
 
-    if (!gethostname(host, sizeof(host))) {
+    if (gethostname(host, sizeof(host)) != 0) {
 	strcpy(host, "Unknown");
     }
 
