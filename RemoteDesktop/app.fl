@@ -50,12 +50,6 @@ decl {extern const int json_controlServerPort;} {private local
 decl {extern const char *json_sessionId;} {private local
 }
 
-decl {const char *REMOTE_ROOM = "remote.lilitun.link";} {private local
-}
-
-decl {int REMOTE_PORT = 9998;} {private local
-}
-
 decl {int user_port = -1;} {private local
 }
 

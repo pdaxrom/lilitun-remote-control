@@ -17,8 +17,6 @@ extern const char *json_appServerUrl;
 extern const char *json_controlServerUrl;
 extern const int json_controlServerPort;
 extern const char *json_sessionId;
-static const char *REMOTE_ROOM = "remote.lilitun.link"; 
-static int REMOTE_PORT = 9998; 
 static int user_port = -1; 
 static char *user_password = NULL; 
 static char *error_string = NULL; 
