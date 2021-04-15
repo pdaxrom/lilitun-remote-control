@@ -477,9 +477,9 @@ static void *remote_connection_thread(void *arg)
 
 		if (pixlen > 0) {
 		    unsigned char *rawImage = NULL;
-		    unsigned int rawWidth;
-		    unsigned int rawHeight;
-		    int rawPixelSize;
+		    unsigned int rawWidth = width;
+		    unsigned int rawHeight = height;
+		    int rawPixelSize = 4;
 
 		    if (pixfmt == PIX_JPEG_BGRA || pixfmt == PIX_JPEG_RGBA) {
 			if (decompress_jpeg_to_raw
@@ -497,13 +497,9 @@ static void *remote_connection_thread(void *arg)
 			    fprintf(stderr, "error decompressing lz4\n");
 			    break;
 			}
-			rawWidth = width;
-			rawHeight = height;
 			rawPixelSize = 4;
 		    } else if (pixfmt == PIX_RAW_BGRA || pixfmt == PIX_RAW_RGBA) {
 			rawImage = pixdata;
-			rawWidth = width;
-			rawHeight = height;
 			rawPixelSize = 4;
 		    }
 #ifdef DEBUG_CLIENT_LOOP
