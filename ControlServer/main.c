@@ -443,6 +443,11 @@ static void *remote_connection_thread(void *arg)
 #endif
 	    pthread_mutex_lock(&conn->projector_io_mutex);
 
+	    if (!conn->thread_alive) {
+		pthread_mutex_unlock(&conn->projector_io_mutex);
+		break;
+	    }
+
 	    send_input_events(conn);
 
 	    uint32_t regions;
@@ -592,14 +597,17 @@ static void *stop_sharing(char *session_id)
 
     while (item) {
 	struct remote_connection_t *conn = list_get_data(item);
+	pthread_mutex_lock(&conn->projector_io_mutex);
 	if (!strcmp(conn->session_id, session_id)) {
-		fprintf(stderr, "stop sharing sessionId=%s\n", session_id);
-		pthread_mutex_lock(&conn->projector_io_mutex);
-		do_req_stop(conn->channel);
-		conn->thread_alive = 0;
+		if (conn->thread_alive) {
+		    fprintf(stderr, "stop sharing sessionId=%s\n", session_id);
+		    do_req_stop(conn->channel);
+		    conn->thread_alive = 0;
+		}
 		pthread_mutex_unlock(&conn->projector_io_mutex);
 		break;
 	}
+	pthread_mutex_unlock(&conn->projector_io_mutex);
 	item = list_next_item(item);
     }
 
