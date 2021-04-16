@@ -24,6 +24,7 @@ static pthread_t tid;
 static int is_started = 0; 
 static Fl_Text_Buffer *log_buf = NULL; 
 typedef struct { int err; char *cert; int ret; } ssl_verify_data;
+static int accept_cert_error = false; 
 
 static void set_error(char *str) {
   //Fl::lock();
@@ -68,7 +69,7 @@ static void set_ssl_verify_cb(void *u) {
   ssl_verify_data *data = (ssl_verify_data *)u;
   
   fl_message_title("Remote host certificate error");
-  data->ret = fl_choice("Error %d\n%s\nContinue?", fl_yes, fl_no, NULL, data->err, data->cert);
+  data->ret = fl_choice("Error %d\n%s\nContinue?", "Yes", "No", "Yes(remember)", data->err, data->cert);
 }
 
 static int set_ssl_verify(int err, char *cert) {
@@ -78,12 +79,21 @@ static int set_ssl_verify(int err, char *cert) {
   	.ret = -1
   };
   
+  if (accept_cert_error) {
+  	return 1;
+  }
+  
   Fl::lock();
   Fl::awake(set_ssl_verify_cb, &data);
   Fl::unlock();
   
   while (data.ret == -1) {
   	sleep(1);
+  }
+  
+  if (data.ret == 2) {
+  	accept_cert_error = true;
+  	data.ret = 0;
   }
   
   return (data.ret == 0) ? 1: 0;

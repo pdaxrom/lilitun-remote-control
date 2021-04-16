@@ -71,6 +71,9 @@ decl {Fl_Text_Buffer *log_buf = NULL;} {private local
 decl {typedef struct { int err; char *cert; int ret; } ssl_verify_data;} {private global
 }
 
+decl {int accept_cert_error = false;} {private local
+}
+
 Function {set_error(char *str)} {open private C return_type void
 } {
   code {//Fl::lock();
@@ -120,7 +123,8 @@ Function {set_ssl_verify_cb(void *u)} {open private return_type void
   code {ssl_verify_data *data = (ssl_verify_data *)u;
 
 fl_message_title("Remote host certificate error");
-data->ret = fl_choice("Error %d\\n%s\\nContinue?", fl_yes, fl_no, NULL, data->err, data->cert);} {}
+data->ret = fl_choice("Error %d\\n%s\\nContinue?", "Yes", "No", "Yes(remember)", data->err, data->cert);} {selected
+  }
 }
 
 Function {set_ssl_verify(int err, char *cert)} {open private return_type int
@@ -131,12 +135,21 @@ Function {set_ssl_verify(int err, char *cert)} {open private return_type int
 	.ret = -1
 };
 
+if (accept_cert_error) {
+	return 1;
+}
+
 Fl::lock();
 Fl::awake(set_ssl_verify_cb, &data);
 Fl::unlock();
 
 while (data.ret == -1) {
 	sleep(1);
+}
+
+if (data.ret == 2) {
+	accept_cert_error = true;
+	data.ret = 0;
 }
 
 return (data.ret == 0) ? 1: 0;} {}
@@ -169,8 +182,7 @@ share_button->redraw();
 Fl::unlock();
 Fl::flush();
 
-return NULL;} {selected
-  }
+return NULL;} {}
 }
 
 Function {projector_start()} {open private return_type int
