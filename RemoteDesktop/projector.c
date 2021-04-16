@@ -256,18 +256,15 @@ static void screen_diff(struct projector_t *projector, void *framebuffer, int re
 	    }
 	}
 
-//	projector->varblock.min_x &= ~0xf;
-//	projector->varblock.max_x = (projector->varblock.max_x + 0x0f) & ~0x0f;
-//	projector->varblock.min_y &= ~0xf;
-//	projector->varblock.max_y = (projector->varblock.max_y + 0x0f) & ~0x0f;
-
 	if (projector->varblock.max_y >= projector->scrHeight) {
 	    projector->varblock.max_y = projector->scrHeight - 1;
 	}
+
 //#ifdef DEBUG_SCREEN
 //	write_log("Modified rect %d x %d - %d x %d\n",
 //		projector->varblock.min_x, projector->varblock.min_y, projector->varblock.max_x, projector->varblock.max_y);
 //#endif
+
 	int rect_width = projector->varblock.max_x - projector->varblock.min_x + 1;
 	int rect_height = projector->varblock.max_y - projector->varblock.min_y + 1;
 
@@ -561,8 +558,9 @@ static int check_ssl_certificate(struct projector_t *projector)
     return 1;
 }
 
-void projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started)
+int projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started)
 {
+    int status = STATUS_OK;
     int use_connect_method = projector->connection_method;
 
     projector->channel = tcp_open(TCP_SSL_CLIENT, host, (use_connect_method == CONNECTION_METHOD_WS) ? 443 : port, NULL, NULL);
@@ -571,6 +569,8 @@ void projector_connect(struct projector_t *projector, const char *host, int port
 	if ((use_connect_method == CONNECTION_METHOD_WS) &&
 	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, "/projector-ws"))) {
 	    write_log("%s: http ws method error!\n", __func__);
+	    status = STATUS_CONNECTION_REJECTED;
+	    *is_started = 0;
 	} else if (check_remote_sig(projector)) {
 	    write_log("Start screen sharing\n");
 	    projector->cb_error("Online");
@@ -581,49 +581,62 @@ void projector_connect(struct projector_t *projector, const char *host, int port
 //		    write_log("Received request %d\n", req);
 		    if (req == REQ_SCREEN_INFO) {
 			if (!send_req_screen_info(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_APPSERVER_HOST) {
 			if (!send_req_appserver_host(projector, apphost)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_SESSION_ID) {
 			if (!send_req_session_id(projector, session_id)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_HOSTNAME) {
 			if (!send_req_hostname(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_SCREEN_UPDATE) {
 			if (!send_req_screen_update(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_USER_PASSWORD) {
 			if (!recv_user_password(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 			projector->cb_user_password(projector->user_password);
 			write_log("User password is %s\n", projector->user_password);
 		    } else if (req == REQ_USER_CONNECTION) {
 			if (!recv_user_connection(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 			projector->cb_user_connection(projector->user_port, projector->user_ipv6port);
 			write_log("User connection ipv4 port is %d, ipv6 port is %d\n", projector->user_port, projector->user_ipv6port);
 		    } else if (req == REQ_KEYBOARD) {
 			if (!recv_keyboard(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 		    } else if (req == REQ_POINTER) {
 			if (!recv_pointer(projector)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
+		    } else if (req == REQ_STOP) {
+			break;
+		    } else {
+			status = STATUS_UNSUPPORTED_REQUEST;
 		    }
 		} else {
+		    status = STATUS_CONNECTION_ERROR;
 		    break;
 		}
-		//sleep(1);
 	    }
 	    if (projector->user_password) {
 		free(projector->user_password);
@@ -632,15 +645,18 @@ void projector_connect(struct projector_t *projector, const char *host, int port
 	    projector->cb_error("Offline");
 	} else {
 	    write_log("Wrong server signature!\n");
+	    status = STATUS_VERSION_ERROR;
+	    *is_started = 0;
 	    projector->cb_error("Error!");
 	}
 	tcp_close(projector->channel);
     } else {
 	write_log("Connection error!\n");
+	status = STATUS_CONNECTION_ERROR;
 	projector->cb_error("Conn Error!");
     }
 
-    *is_started = 0;
+    return status;
 }
 
 void projector_finish(struct projector_t *projector)

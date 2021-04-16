@@ -7,6 +7,14 @@ enum {
     CONNECTION_METHOD_WS
 };
 
+enum {
+    STATUS_OK = 0,
+    STATUS_VERSION_ERROR,
+    STATUS_CONNECTION_REJECTED,
+    STATUS_CONNECTION_ERROR,
+    STATUS_UNSUPPORTED_REQUEST
+};
+
 struct varblock_t {
     int min_x;
     int min_y;
@@ -38,9 +46,9 @@ struct projector_t {
 extern "C" {
 #endif
 
-    struct projector_t *projector_init();
-    void projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started);
-    void projector_finish(struct projector_t *projector);
+struct projector_t *projector_init();
+int projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started);
+void projector_finish(struct projector_t *projector);
 
 #ifdef __cplusplus
 }

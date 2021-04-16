@@ -15,6 +15,7 @@ enum {
     REQ_APPSERVER_HOST,
     REQ_SESSION_ID,
     REQ_HOSTNAME,
+    REQ_STOP
 };
 
 enum {

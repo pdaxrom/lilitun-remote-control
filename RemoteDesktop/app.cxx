@@ -92,8 +92,17 @@ static int set_ssl_verify(int err, char *cert) {
 static void * projector_thread(void *arg) {
   struct projector_t *projector = (struct projector_t *)arg;
   
-  projector_connect(projector, json_controlServerUrl, json_controlServerPort,
-  	json_appServerUrl, json_sessionId, &is_started);
+  while (is_started) {
+  	int status = projector_connect(projector, json_controlServerUrl, json_controlServerPort,
+  		json_appServerUrl, json_sessionId, &is_started);
+  
+  	if (status == STATUS_CONNECTION_ERROR) {
+  		sleep(2);
+  		continue;
+  	}
+  
+  	break;
+  }
   
   projector_finish(projector);
   
