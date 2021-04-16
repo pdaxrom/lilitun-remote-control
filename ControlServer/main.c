@@ -249,6 +249,15 @@ static int do_req_screen_update_region(tcp_channel * channel, uint32_t * x, uint
     return 1;
 }
 
+static int do_req_stop(tcp_channel *channel)
+{
+    if (!do_req_initial(channel, REQ_STOP)) {
+	return 0;
+    }
+
+    return 1;
+}
+
 static int send_user_password(tcp_channel * channel, char * password)
 {
     if (!send_uint32(channel, REQ_USER_PASSWORD)) {
@@ -585,7 +594,10 @@ static void *stop_sharing(char *session_id)
 	struct remote_connection_t *conn = list_get_data(item);
 	if (!strcmp(conn->session_id, session_id)) {
 		fprintf(stderr, "stop sharing sessionId=%s\n", session_id);
+		pthread_mutex_lock(&conn->projector_io_mutex);
+		do_req_stop(conn->channel);
 		conn->thread_alive = 0;
+		pthread_mutex_unlock(&conn->projector_io_mutex);
 		break;
 	}
 	item = list_next_item(item);
