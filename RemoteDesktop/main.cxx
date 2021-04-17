@@ -71,6 +71,8 @@ static int extract_json_params(char *instr)
 	return 0;
     }
 
+    outstr = (char *)realloc(outstr, outlen + 1);
+
     outstr[outlen] = 0;
 
     fprintf(stderr, "LINK DECEODED [%s]\n", outstr);
