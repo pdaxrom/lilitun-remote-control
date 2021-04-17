@@ -216,7 +216,7 @@ function OutCopyFunction(idToolTip) {
         <label for="userId">User Id<?php echo $errUserId; ?></label>
         <input type="text" id="userId" name="userId" value="<?php echo $userId; ?>" disabled>
         <input type="submit" value="Copy User Id" onclick="return CopyFunction('userId_form', 'tooltip');" onmouseout="return OutCopyFunction('tooltip');">
-        <span class="tooltiptext" id="tooltip">Copied</span>
+        <span class="tooltiptext" id="tooltip"></span>
       </div>
       <div>
         <label for="newUserId">Existing User Id</label>
