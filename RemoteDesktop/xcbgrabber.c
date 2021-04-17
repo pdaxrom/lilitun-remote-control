@@ -49,7 +49,7 @@ static int AllocateShmBuffer(XGrabber * cfg, int max_size)
     xcb_shm_attach(cfg->connection, cfg->shmseg, cfg->shmid, 0);
     cfg->shmaddr = shmat(cfg->shmid, NULL, 0);
     shmctl(cfg->shmid, IPC_RMID, 0);
-    if ((int64_t) cfg->shmaddr == -1 || !cfg->shmaddr) {
+    if (cfg->shmaddr == (void *)-1 || !cfg->shmaddr) {
 	fprintf(stderr, "shmat() error!\n");
 	return 0;
     }
