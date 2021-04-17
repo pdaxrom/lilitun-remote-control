@@ -48,6 +48,10 @@ PROJECTOR_LIBS="$PROJECTOR_LIBS $FLTK_LIB $LIBJPEG_LIBS $ADDONS_LIBS"
 
 SYSTEM_ARCH=$host_cpu
 
+case $SYSTEM_ARCH in
+armv7*) SYSTEM_ARCH=armhf ;;
+esac
+
 AM_CONDITIONAL([TARGET_LINUX], [test "$build_for" = "linux"])
 AM_CONDITIONAL([TARGET_WINDOWS], [test "$build_for" = "windows"])
 AM_CONDITIONAL([TARGET_MACOS], [test "$build_for" = "macos"])
