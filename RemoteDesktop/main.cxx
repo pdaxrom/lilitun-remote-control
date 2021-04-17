@@ -269,6 +269,9 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+	share_button->set();
+	projector_start();
+
 	Fl::run();
 #ifndef __APPLE__
     }

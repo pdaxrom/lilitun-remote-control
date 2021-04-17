@@ -1,5 +1,5 @@
 # data file for the Fltk User Interface Designer (fluid)
-version 1.0304
+version 1,0400
 header_name {.h}
 code_name {.cxx}
 decl {\#include <stdio.h>} {private global
@@ -123,8 +123,7 @@ Function {set_ssl_verify_cb(void *u)} {open private return_type void
   code {ssl_verify_data *data = (ssl_verify_data *)u;
 
 fl_message_title("Remote host certificate error");
-data->ret = fl_choice("Error %d\\n%s\\nContinue?", "Yes", "No", "Yes(remember)", data->err, data->cert);} {selected
-  }
+data->ret = fl_choice("Error %d\\n%s\\nContinue?", "Yes", "No", "Yes(remember)", data->err, data->cert);} {}
 }
 
 Function {set_ssl_verify(int err, char *cert)} {open private return_type int
@@ -185,7 +184,7 @@ Fl::flush();
 return NULL;} {}
 }
 
-Function {projector_start()} {open private return_type int
+Function {projector_start()} {open selected return_type int
 } {
   code {struct projector_t *projector = projector_init();
 if (!projector) {
