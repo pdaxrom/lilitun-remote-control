@@ -210,7 +210,7 @@ function OutCopyFunction(idToolTip) {
 <body>
 <h2>LiliTun remote control</h2>
   <div class="support_form">
-    <form action="desktop.php">
+    <form id="userId_form" action="desktop.php">
       <input type="hidden" name="userId_submitted" value="1">
       <div>
         <label for="userId">User Id<?php echo $errUserId; ?></label>
