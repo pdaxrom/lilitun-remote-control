@@ -181,6 +181,30 @@ function startApp() {
     }
 }
 
+function CopyFunction(idName, idToolTip) {
+    let inputs = document.getElementById(idName).elements;
+    let el = document.createElement('textarea');
+    el.value = inputs['userId'].value;
+    el.setAttribute('readonly', '');
+    el.style = {position: 'absolute', left: '-9999px'};
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+
+    let tooltip = document.getElementById(idToolTip);
+    tooltip.innerHTML = "Copied: " + inputs['userId'].value;
+
+    return false;
+}
+
+function OutCopyFunction(idToolTip) {
+  let tooltip = document.getElementById(idToolTip);
+  tooltip.innerHTML = "";
+
+  return false;
+}
+
 </script>
 </head>
 <body>
@@ -191,13 +215,13 @@ function startApp() {
       <div>
         <label for="userId">User Id<?php echo $errUserId; ?></label>
         <input type="text" id="userId" name="userId" value="<?php echo $userId; ?>" disabled>
+        <input type="submit" value="Copy User Id" onclick="return CopyFunction('userId_form', 'tooltip');" onmouseout="return OutCopyFunction('tooltip');">
+        <span class="tooltiptext" id="tooltip">Copied</span>
       </div>
       <div>
         <label for="newUserId">Existing User Id</label>
         <input type="text" id="newUserId" name="newUserId" value="">
-        <div id="submit">
-          <input type="submit" value="Update User Id"><br>
-        </div>
+        <input type="submit" value="Update User Id"><br>
       </div>
   </form>
 </div>
