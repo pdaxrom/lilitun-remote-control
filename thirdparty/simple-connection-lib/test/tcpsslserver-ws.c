@@ -23,10 +23,14 @@ int main(int argc, char *argv[])
 	return -1;
     }
 
-    tcp_channel *client = tcp_accept(server);
-    if (!client) {
-	fprintf(stderr, "tcp_accept()\n");
-	return -1;
+    tcp_channel *client;
+    while (1) {
+	client = tcp_accept(server);
+	if (!client) {
+	    fprintf(stderr, "tcp_accept()\n");
+	    continue;
+	}
+	break;
     }
 
     if (!tcp_connection_upgrade(client, SIMPLE_CONNECTION_METHOD_WS, "/")) {

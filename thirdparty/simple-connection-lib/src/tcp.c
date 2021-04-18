@@ -324,9 +324,17 @@ tcp_channel *tcp_open(int mode, const char *addr, int port, char *sslkeyfile, ch
     return u;
 }
 
+static int tcp_write_ws(tcp_channel *u, uint8_t opcode, char *buf, size_t len);
+
 int tcp_close(tcp_channel *u)
 {
     if (u->s >= 0) {
+	if (u->connection_method == SIMPLE_CONNECTION_METHOD_WS) {
+	    char buf[] = { 0, 0, 'C', 'l', 'o', 's', 'e', 'd' };
+	    *((unsigned short *)buf) = htons(1000);
+	    tcp_write_ws(u, WS_OPCODE_CLOSE, buf, sizeof(buf));
+	}
+
 	if ((u->mode == TCP_SSL_CLIENT) || (u->mode == TCP_SSL_SERVER)) {
 	    if (u->mode == TCP_SSL_CLIENT) {
 		SSL_shutdown(u->ssl);
@@ -479,13 +487,20 @@ static char *copy_string(char *dst, int dstSize, char *src, int srcSize)
 
 static char *header_get_field(char *header, char *field, char *str, int n)
 {
-    char *tmp = strcasestr(header, field);
-    if (tmp) {
-	char *tmp1 = strchr(tmp, ':');
-	if (tmp1) {
+    while (*header) {
+	if (strcasestr(header, field) == header && *(header + strlen(field)) == ':') {
+	    char *tmp1 = header + strlen(field) + 1;
 	    for (tmp1++; *tmp1 == ' '; tmp1++) ;
+	    char *tmp;
 	    for (tmp = tmp1; *tmp != 0 && *tmp != '\n' && *tmp != '\r'; tmp++) ;
 	    return copy_string(str, n, tmp1, tmp - tmp1);
+	}
+
+	while (*header && *header != '\r' && *header != '\n') {
+	    header++;
+	}
+	while (*header && (*header == '\r' || *header == '\n')) {
+	    header++;
 	}
     }
     return NULL;
@@ -643,10 +658,9 @@ int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *pa
     return 1;
 }
 
-static int send_ws_header(tcp_channel *channel, int len)
+static int send_ws_header(tcp_channel *channel, uint8_t opcode, int len)
 {
     int sz;
-    uint8_t opcode = WS_OPCODE_BINARY_FRAME;
     int blen = len;
     unsigned char *mask;
     ws_t *ws = channel->ws;
@@ -668,11 +682,13 @@ static int send_ws_header(tcp_channel *channel, int len)
 	sz = 10;
     }
 
-    ws->header.b1 |= 0x80; // mask flag
-    sz += 4;
-    if (simple_connection_get_random(mask, 4, 0) == -1) {
-	fprintf(stderr, "%s: get_random()\n", __func__);
-	return 0;
+    if (channel->primary_mode == TCP_CLIENT || channel->primary_mode == TCP_SSL_CLIENT) {
+	ws->header.b1 |= 0x80; // mask flag
+	sz += 4;
+	if (simple_connection_get_random(mask, 4, 0) == -1) {
+	    fprintf(stderr, "%s: get_random()\n", __func__);
+	    return 0;
+	}
     }
 
     //write_log("SZ=%d KEY=%02X %02X %02X %02X\n", sz, mask[0], mask[1], mask[2], mask[3]);
@@ -792,25 +808,38 @@ static void ws_mask_data(ws_t *ws, char *data, int len)
     }
 }
 
-int tcp_write(tcp_channel *u, char *buf, size_t len)
+static int tcp_write_ws(tcp_channel *u, uint8_t opcode, char *buf, size_t len)
 {
     char *tmp = alloca(len);
 
-    if (u->connection_method == SIMPLE_CONNECTION_METHOD_WS) {
-	if (!send_ws_header(u, len)) {
-	    return 0;
-	}
-	ws_t *ws = u->ws;
-	ws->pos = 0;
+    if (!send_ws_header(u, opcode, len)) {
+	return 0;
     }
+    ws_t *ws = u->ws;
+    ws->pos = 0;
 
     memcpy(tmp, buf, len);
 
-    if (u->connection_method == SIMPLE_CONNECTION_METHOD_WS) {
+    if (u->primary_mode == TCP_CLIENT || u->primary_mode == TCP_SSL_CLIENT) {
 	ws_mask_data(u->ws, tmp, len);
     }
 
     if (tcp_write_internal(u, tmp, len) != len) {
+	fprintf(stderr, "tcp_write()\n");
+	return 0;
+    }
+
+    return len;
+}
+
+
+int tcp_write(tcp_channel *u, char *buf, size_t len)
+{
+    if (u->connection_method == SIMPLE_CONNECTION_METHOD_WS) {
+	return tcp_write_ws(u, WS_OPCODE_BINARY_FRAME, buf, len);
+    }
+
+    if (tcp_write_internal(u, buf, len) != len) {
 	fprintf(stderr, "tcp_write()\n");
 	return 0;
     }
