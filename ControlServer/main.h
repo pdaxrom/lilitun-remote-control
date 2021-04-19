@@ -60,6 +60,7 @@ struct remote_connection_t {
     char *session_id;
     char *hostname;
     int thread_alive;
+    int stop_req;
     struct translator_t *translator;
     pthread_t tid;
 };

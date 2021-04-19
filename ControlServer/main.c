@@ -251,7 +251,7 @@ static int do_req_screen_update_region(tcp_channel * channel, uint32_t * x, uint
 
 static int do_req_stop(tcp_channel *channel)
 {
-    if (!do_req_initial(channel, REQ_STOP)) {
+    if (!send_uint32(channel, REQ_STOP)) {
 	return 0;
     }
 
@@ -377,6 +377,7 @@ static void *remote_connection_thread(void *arg)
     pthread_mutex_init(&conn->projector_io_mutex, NULL);
 
     conn->thread_alive = 0;
+    conn->stop_req = 0;
 
     pthread_mutex_lock(&remote_connections_list_mutex);
     list_add_data(&remote_connections_list, conn);
@@ -395,15 +396,10 @@ static void *remote_connection_thread(void *arg)
 
 	    conn->host = NULL;
 	    conn->httpdir = NULL;
-//	    conn->httpdir = WEBROOT_DIR;
-//	    conn->sslkeyfile = CONFIG_DIR "/privkey1.pem";
-//	    conn->sslcertfile = CONFIG_DIR "/cert1.pem";
 	    conn->port = portctrl_alloc();
 	    conn->ipv6port = portctrl_alloc();
 	    conn->httpport = -1;
 	    conn->http6port = -1;
-//	    conn->httpport = portctrl_alloc();
-//	    conn->http6port = portctrl_alloc();
 
 	    conn->passwds = malloc(sizeof(char**)*2);
 	    conn->passwds[0] = get_random_string(12);
@@ -443,7 +439,9 @@ static void *remote_connection_thread(void *arg)
 #endif
 	    pthread_mutex_lock(&conn->projector_io_mutex);
 
-	    if (!conn->thread_alive) {
+	    if (conn->stop_req) {
+		do_req_stop(conn->channel);
+		conn->thread_alive = 0;
 		pthread_mutex_unlock(&conn->projector_io_mutex);
 		break;
 	    }
@@ -599,13 +597,10 @@ static void *stop_sharing(char *session_id)
 	struct remote_connection_t *conn = list_get_data(item);
 	pthread_mutex_lock(&conn->projector_io_mutex);
 	if (!strcmp(conn->session_id, session_id)) {
-		if (conn->thread_alive) {
-		    fprintf(stderr, "stop sharing sessionId=%s\n", session_id);
-		    do_req_stop(conn->channel);
-		    conn->thread_alive = 0;
-		}
-		pthread_mutex_unlock(&conn->projector_io_mutex);
-		break;
+	    fprintf(stderr, "stop sharing sessionId=%s\n", session_id);
+	    conn->stop_req = 1;
+	    pthread_mutex_unlock(&conn->projector_io_mutex);
+	    break;
 	}
 	pthread_mutex_unlock(&conn->projector_io_mutex);
 	item = list_next_item(item);
