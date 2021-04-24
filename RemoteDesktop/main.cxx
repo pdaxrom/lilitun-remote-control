@@ -172,7 +172,6 @@ const char *server_cert = NULL;
 
 static int parse_parameters(int *argc, char **argv[])
 {
-    fprintf(stderr, "--1 %p\n", *argv);
     fprintf(stderr, "LINK [%s]\n", (*argv)[1]);
 
     if (!strncmp((*argv)[1], x_scheme_handler, strlen(x_scheme_handler))) {
@@ -198,6 +197,8 @@ static int parse_parameters(int *argc, char **argv[])
 
 	*argv = *argv + 3;
 	*argc = *argc - 3;
+
+	return 1;
     }
 
     write_log("Unknown scheme!\n");
@@ -245,7 +246,6 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
 	Set_URL_Handler(url_handler);
 #endif
-    fprintf(stderr, "--2 %p\n", argv);
 
     if (argc > 1 && parse_parameters(&argc, &argv)) {
 //	argc--;
@@ -253,8 +253,6 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
     }
 #endif
-
-    fprintf(stderr, "--3 %p %s\n", argv, argv[1]);
 
 	Fl_Double_Window *win_main = init_gui();
 
