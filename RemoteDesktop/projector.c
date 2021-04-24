@@ -558,6 +558,26 @@ static int check_ssl_certificate(struct projector_t *projector)
     return 1;
 }
 
+#if defined(_WIN32) || defined(__APPLE__)
+char *strndup (const char *s, size_t n)
+{
+    char *result;
+    size_t len = strlen (s);
+
+    if (n < len) {
+	len = n;
+    }
+
+    result = (char *) malloc (len + 1);
+    if (!result) {
+	return NULL;
+    }
+
+    result[len] = '\0';
+    return (char *) memcpy (result, s, len);
+}
+#endif
+
 static int parse_url(char *link, char **scheme, char **host, uint16_t *port, char **path)
 {
     if (scheme) {
@@ -620,7 +640,6 @@ static int parse_url(char *link, char **scheme, char **host, uint16_t *port, cha
     }
 
     if (*ptr == '/') {
-	ptr++;
 	if (*ptr) {
 	    if (path) {
 		*path = strdup(ptr);
@@ -630,9 +649,9 @@ static int parse_url(char *link, char **scheme, char **host, uint16_t *port, cha
 
     if (port && scheme) {
 	if (*port == 0) {
-	    if (!strcmp(*scheme, "ws://") || !strcmp(*scheme, "http://")) {
+	    if (*scheme && (!strcmp(*scheme, "ws://") || !strcmp(*scheme, "http://"))) {
 		*port = 80;
-	    } else if (!strcmp(*scheme, "wss://") || !strcmp(*scheme, "https://")) {
+	    } else if (*scheme && (!strcmp(*scheme, "wss://") || !strcmp(*scheme, "https://"))) {
 		*port = 443;
 	    } else {
 		*port = 9998;
@@ -652,15 +671,17 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
     char *path = NULL;
 
     if (parse_url((char *)controlhost, &scheme, &host, &port, &path)) {
-	write_log("Control host url parse error!");
+	write_log("Control host url parse error!\n");
 	status =  STATUS_URL_PARSE_ERROR;
 	goto err;
     }
 
+    write_log("Connection:\n scheme %s\n host %s\nport %d\npath %s\n", scheme, host, port, path);
+
     int connect_method = -1;
     int connect_type = -1;
 
-    if (!strcmp(scheme, "http://") || !strcmp(scheme, "ws://") || !strcmp(scheme, "tcp://")) {
+    if (scheme && (!strcmp(scheme, "http://") || !strcmp(scheme, "ws://") || !strcmp(scheme, "tcp://"))) {
 	if (apphost) {
 	    connect_type = TCP_CLIENT;
 	} else {
@@ -671,7 +692,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	} else {
 	    connect_method = CONNECTION_METHOD_DIRECT;
 	}
-    } else if (!strcmp(scheme, "https://") || !strcmp(scheme, "wss://") || !strcmp(scheme, "tcp+ssl://")) {
+    } else if (scheme && (!strcmp(scheme, "https://") || !strcmp(scheme, "wss://") || !strcmp(scheme, "tcp+ssl://"))) {
 	if (apphost) {
 	    connect_type = TCP_SSL_CLIENT;
 	} else {
@@ -685,13 +706,13 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
     }
 
     if (connect_type == -1) {
-	write_log("Unknown control server url scheme %s!", scheme);
+	write_log("Unknown control server url scheme %s!\n", scheme);
 	status = STATUS_URL_SCHEME_UNKNOWN;
 	goto err;
     }
 
     if (port == 0) {
-	write_log("Control server port %d error!", port);
+	write_log("Control server port %d error!\n", port);
 	goto err;
     }
 
