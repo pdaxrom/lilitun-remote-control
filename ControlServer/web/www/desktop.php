@@ -143,6 +143,9 @@ if (!$controlServer) {
     $controlServer = CONTROLSERVER;
 }
 
+$appServer = $appServer."/desktop.php";
+$controlServer = $controlServer."/projector-ws";
+
 $dbase->exec("INSERT OR IGNORE INTO Sessions(sessionId, userId, appServer, controlServer) VALUES('$sessionId', '$userId', '$appServer', '$controlServer')");
 $dbase->exec("UPDATE Sessions SET lastTime=strftime('%s', 'now') WHERE userId = '$userId' AND sessionId = '$sessionId'");
 
@@ -174,7 +177,7 @@ function startApp() {
 	setTimeout(function () { window.location = dl; }, 25);
 	window.location = "lilink://<?php echo base64_encode('{"authHeader":"authHeader value",'.
 '"requestType":"remoteControl",'.
-'"appServerUrl":"'.$appServer.'/desktop.php",'.
+'"appServerUrl":"'.$appServer.'",'.
 '"controlServerUrl":"'.$controlServer.'",'.
 '"sessionId":"'.$sessionId.'"'.
 "}");?>";
