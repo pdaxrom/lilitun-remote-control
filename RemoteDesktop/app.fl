@@ -1,5 +1,5 @@
 # data file for the Fltk User Interface Designer (fluid)
-version 1,0400
+version 1.0304
 header_name {.h}
 code_name {.cxx}
 decl {\#include <stdio.h>} {private global
@@ -45,6 +45,15 @@ decl {extern const char *json_controlServerUrl;} {private global
 }
 
 decl {extern const char *json_sessionId;} {private local
+}
+
+decl {extern const char *server_url;} {private global
+}
+
+decl {extern const char *server_privkey;} {private global
+}
+
+decl {extern const char *server_cert;} {private global
 }
 
 decl {int user_port = -1;} {private local
@@ -156,7 +165,7 @@ Function {projector_thread(void *arg)} {open private return_type {void *}
   code {struct projector_t *projector = (struct projector_t *)arg;
 
 while (is_started) {
-	int status = projector_connect(projector, json_controlServerUrl, json_appServerUrl, json_sessionId, &is_started);
+	int status = projector_connect(projector, server_url ? server_url : json_controlServerUrl, server_url ? NULL : json_appServerUrl, server_privkey, server_cert, json_sessionId, &is_started);
 
 	if (status == STATUS_CONNECTION_ERROR) {
 	 	sleep(2);

@@ -166,12 +166,17 @@ static int register_uri_scheme(char *app)
 }
 #endif
 
-static int parse_parameters(char *param)
-{
-    fprintf(stderr, "LINK [%s]\n", param);
+const char *server_url = NULL;
+const char *server_privkey = NULL;
+const char *server_cert = NULL;
 
-    if (!strncmp(param, x_scheme_handler, strlen(x_scheme_handler))) {
-	if (!extract_json_params(param + strlen(x_scheme_handler))) {
+static int parse_parameters(int *argc, char **argv[])
+{
+    fprintf(stderr, "--1 %p\n", *argv);
+    fprintf(stderr, "LINK [%s]\n", (*argv)[1]);
+
+    if (!strncmp((*argv)[1], x_scheme_handler, strlen(x_scheme_handler))) {
+	if (!extract_json_params((*argv)[1] + strlen(x_scheme_handler))) {
 	    write_log("Unknown scheme!\n");
 
 	    return 0;
@@ -182,7 +187,17 @@ static int parse_parameters(char *param)
 	write_log("- controlServerUrl : %s\n", json_controlServerUrl);
 	write_log("- sessionId        : %s\n", json_sessionId);
 
+	*argc = *argc - 1;
+	*argv = *argv + 1;
+
 	return 1;
+    } else {
+	server_url = (*argv)[1];
+	server_privkey = (*argv)[2];
+	server_cert = (*argv)[3];
+
+	*argv = *argv + 3;
+	*argc = *argc - 3;
     }
 
     write_log("Unknown scheme!\n");
@@ -230,13 +245,16 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
 	Set_URL_Handler(url_handler);
 #endif
-    if (argc > 1 && parse_parameters(argv[1])) {
-	argc--;
-	argv++;
+    fprintf(stderr, "--2 %p\n", argv);
+
+    if (argc > 1 && parse_parameters(&argc, &argv)) {
+//	argc--;
+//	argv++;
 #ifdef __APPLE__
     }
 #endif
 
+    fprintf(stderr, "--3 %p %s\n", argv, argv[1]);
 
 	Fl_Double_Window *win_main = init_gui();
 

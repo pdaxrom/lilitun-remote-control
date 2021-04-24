@@ -664,7 +664,7 @@ static int parse_url(char *link, char **scheme, char **host, uint16_t *port, cha
     return ret;
 }
 
-int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *session_id, int *is_started)
+int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey, const char *cert, const char *session_id, int *is_started)
 {
     int status = STATUS_OK;
     char *scheme = NULL;
@@ -721,7 +721,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
     tcp_channel *server = NULL;
 
     if (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER) {
-	server = tcp_open(connect_type, host, port, NULL, NULL);
+	server = tcp_open(connect_type, host, port, (char *)privkey, (char *)cert);
     } else {
 	projector->channel = tcp_open(connect_type, host, port, NULL, NULL);
     }

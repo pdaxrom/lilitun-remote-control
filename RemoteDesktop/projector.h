@@ -49,7 +49,7 @@ extern "C" {
 #endif
 
 struct projector_t *projector_init();
-int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *session_id, int *is_started);
+int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey, const char *cert, const char *session_id, int *is_started);
 void projector_finish(struct projector_t *projector);
 
 #ifdef __cplusplus
