@@ -558,8 +558,8 @@ static int check_ssl_certificate(struct projector_t *projector)
     return 1;
 }
 
-#if defined(_WIN32) || defined(__APPLE__)
-char *strndup (const char *s, size_t n)
+#ifdef _WIN32
+static char *strndup (const char *s, size_t n)
 {
     char *result;
     size_t len = strlen (s);
@@ -645,6 +645,8 @@ static int parse_url(char *link, char **scheme, char **host, uint16_t *port, cha
 		*path = strdup(ptr);
 	    }
 	}
+    } else {
+	*path = strdup("/");
     }
 
     if (port && scheme) {
@@ -743,7 +745,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 
     if (projector->channel && check_ssl_certificate(projector)) {
 	if ((connect_method == CONNECTION_METHOD_WS) &&
-	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path ? path : "/"))) {
+	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path))) {
 	    write_log("%s: http ws method error!\n", __func__);
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;

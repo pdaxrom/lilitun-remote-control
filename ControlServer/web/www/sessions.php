@@ -17,8 +17,10 @@ if (@$_SESSION['userId']) {
 );
 
     foreach ($rows as $row) {
-	$link="https://{$row['appServer']}/novnc/vnc.html?autoconnect=true&".
-"host={$row['controlServer']}&port=443&resize=scale&encrypt=1&password={$row['clientPassword']}&".
+	$controlServerHost = parse_url($row['controlServer'], PHP_URL_HOST);
+	$appServerHost = parse_url($row['appServer'], PHP_URL_HOST);
+	$link="https://$appServerHost/novnc/vnc.html?autoconnect=true&".
+"host=$controlServerHost&port=443&resize=scale&encrypt=1&password={$row['clientPassword']}&".
 "path=/websockify?token={$row['clientPort']}";
 ?>
 <a href="<?php echo $link; ?>" target="_blank">Users can connect to the shared desktop '<?php echo "{$row['host']}";?>' via this link</a><br>

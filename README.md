@@ -15,8 +15,8 @@ base64 encoded json data:
 ```
   {
     "requestType"      : "remoteControl",
-    "appServerUrl"     : "remote.lilitun.link/desktop.php",
-    "controlServerUrl" : "remote.lilitun.link",
+    "appServerUrl"     : "https://remote.lilitun.link/desktop.php",
+    "controlServerUrl" : "wss://remote.lilitun.link/projector-ws",
     "sessionId"        : "ba519a71-b4ae-47ee-b959-49769a009299"
   }
 ```

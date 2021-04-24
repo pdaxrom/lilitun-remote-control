@@ -25,7 +25,9 @@ if (@$_REQUEST['requestType']) {
 		//file_get_contents("https://$controlServer:9996/?requestType=$requestType&sessionId=$sessionId", false, stream_context_create($arrContextOptions));
 		//file_get_contents("http://$controlServer:9996/?requestType=$requestType&sessionId=$sessionId", false, stream_context_create($arrContextOptions));
 
-		$url = "http://$controlServer:9996/?action=message";
+		$controlServerHost = parse_url($controlServer, PHP_URL_HOST);
+
+		$url = "http://$controlServerHost:9996/?action=message";
 		$ch = curl_init($url);
 		$data = array(
 		    'requestType' => $requestType,

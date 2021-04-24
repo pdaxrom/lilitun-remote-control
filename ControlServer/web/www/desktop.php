@@ -143,8 +143,8 @@ if (!$controlServer) {
     $controlServer = CONTROLSERVER;
 }
 
-$appServer = $appServer."/desktop.php";
-$controlServer = $controlServer."/projector-ws";
+$appServer = 'https://'.$appServer."/desktop.php";
+$controlServer = 'wss://'.$controlServer."/projector-ws";
 
 $dbase->exec("INSERT OR IGNORE INTO Sessions(sessionId, userId, appServer, controlServer) VALUES('$sessionId', '$userId', '$appServer', '$controlServer')");
 $dbase->exec("UPDATE Sessions SET lastTime=strftime('%s', 'now') WHERE userId = '$userId' AND sessionId = '$sessionId'");
@@ -233,7 +233,7 @@ function OutCopyFunction(idToolTip) {
 
 Launch the remote conrol app with this link <a id="start_link" href="lilink://<?php echo base64_encode('{"authHeader":"authHeader value",'.
 '"requestType":"remoteControl",'.
-'"appServerUrl":"'.$appServer.'/desktop.php",'.
+'"appServerUrl":"'.$appServer.'",'.
 '"controlServerUrl":"'.$controlServer.'",'.
 '"sessionId":"'.$sessionId.'"'.
 "}");?>">Launch remote control app</a><br><br>
