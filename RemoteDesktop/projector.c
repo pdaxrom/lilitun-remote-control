@@ -558,16 +558,171 @@ static int check_ssl_certificate(struct projector_t *projector)
     return 1;
 }
 
-int projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started)
+static int parse_url(char *link, char **scheme, char **host, uint16_t *port, char **path)
+{
+    if (scheme) {
+	*scheme = NULL;
+    }
+    if (host) {
+	*host = NULL;
+    }
+    if (port) {
+	*port = 0;
+    }
+    if (path) {
+	*path = NULL;
+    }
+
+    if (!link || strlen(link) == 0) {
+	return 1;
+    }
+
+    int ret = 0;
+
+    char _link[strlen(link) + 1];
+    strcpy(_link, link);
+
+    char *ptr = _link;
+    char *endptr = strstr(ptr, "://");
+    if (endptr) {
+	if (scheme) {
+	    *scheme = strndup(ptr, endptr - ptr + 3);
+	}
+	ptr = endptr + 3;
+    }
+
+    endptr = ptr;
+    while (*endptr && *endptr != ':' && *endptr != '/') {
+	endptr++;
+    }
+
+    if (endptr != ptr) {
+	if (host) {
+	    *host = strndup(ptr, endptr - ptr);
+	}
+    }
+
+    ptr = endptr;
+
+    if (*ptr == ':') {
+	ptr++;
+	unsigned int p = strtol(ptr, &endptr, 10);
+	if (p == 0 || p >= USHRT_MAX || (errno == ERANGE && (p == USHRT_MAX || p == 0))
+		|| (errno != 0 && port == 0) || (ptr == endptr && p == 0)) {
+	    write_log("%s: port error '%s'", __func__, ptr);
+	    ret = 1;
+	} else {
+	    if (port) {
+		*port = p;
+	    }
+	}
+	ptr = endptr;
+    }
+
+    if (*ptr == '/') {
+	ptr++;
+	if (*ptr) {
+	    if (path) {
+		*path = strdup(ptr);
+	    }
+	}
+    }
+
+    if (port && scheme) {
+	if (*port == 0) {
+	    if (!strcmp(*scheme, "ws://") || !strcmp(*scheme, "http://")) {
+		*port = 80;
+	    } else if (!strcmp(*scheme, "wss://") || !strcmp(*scheme, "https://")) {
+		*port = 443;
+	    } else {
+		*port = 9998;
+	    }
+	}
+    }
+
+    return ret;
+}
+
+int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *session_id, int *is_started)
 {
     int status = STATUS_OK;
-    int use_connect_method = projector->connection_method;
+    char *scheme = NULL;
+    char *host = NULL;
+    uint16_t port = 0;
+    char *path = NULL;
 
-    projector->channel = tcp_open(TCP_SSL_CLIENT, host, (use_connect_method == CONNECTION_METHOD_WS) ? 443 : port, NULL, NULL);
+    if (parse_url((char *)controlhost, &scheme, &host, &port, &path)) {
+	write_log("Control host url parse error!");
+	status =  STATUS_URL_PARSE_ERROR;
+	goto err;
+    }
+
+    int connect_method = -1;
+    int connect_type = -1;
+
+    if (!strcmp(scheme, "http://") || !strcmp(scheme, "ws://") || !strcmp(scheme, "tcp://")) {
+	if (apphost) {
+	    connect_type = TCP_CLIENT;
+	} else {
+	    connect_type = TCP_SERVER;
+	}
+	if (!strcmp(scheme, "ws://") || !strcmp(scheme, "http://")) {
+	    connect_method = CONNECTION_METHOD_WS;
+	} else {
+	    connect_method = CONNECTION_METHOD_DIRECT;
+	}
+    } else if (!strcmp(scheme, "https://") || !strcmp(scheme, "wss://") || !strcmp(scheme, "tcp+ssl://")) {
+	if (apphost) {
+	    connect_type = TCP_SSL_CLIENT;
+	} else {
+	    connect_type = TCP_SSL_SERVER;
+	}
+	if (!strcmp(scheme, "wss://") || !strcmp(scheme, "https://")) {
+	    connect_method = CONNECTION_METHOD_WS;
+	} else {
+	    connect_method = CONNECTION_METHOD_DIRECT;
+	}
+    }
+
+    if (connect_type == -1) {
+	write_log("Unknown control server url scheme %s!", scheme);
+	status = STATUS_URL_SCHEME_UNKNOWN;
+	goto err;
+    }
+
+    if (port == 0) {
+	write_log("Control server port %d error!", port);
+	goto err;
+    }
+
+    tcp_channel *server = NULL;
+
+    if (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER) {
+	server = tcp_open(connect_type, host, port, NULL, NULL);
+    } else {
+	projector->channel = tcp_open(connect_type, host, port, NULL, NULL);
+    }
+
+    do {
+
+    if (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER) {
+	while (*is_started) {
+	    projector->channel = tcp_accept(server);
+	    if (!projector->channel) {
+		fprintf(stderr, "tcp_accept()\n");
+		continue;
+	    }
+	    break;
+	}
+
+	if (!*is_started) {
+	    break;
+	}
+    }
 
     if (projector->channel && check_ssl_certificate(projector)) {
-	if ((use_connect_method == CONNECTION_METHOD_WS) &&
-	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, "/projector-ws"))) {
+	if ((connect_method == CONNECTION_METHOD_WS) &&
+	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path ? path : "/"))) {
 	    write_log("%s: http ws method error!\n", __func__);
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;
@@ -654,6 +809,23 @@ int projector_connect(struct projector_t *projector, const char *host, int port,
 	write_log("Connection error!\n");
 	status = STATUS_CONNECTION_ERROR;
 	projector->cb_error("Conn Error!");
+    }
+
+    } while ((connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER) && *is_started);
+
+    if (server) {
+	tcp_close(server);
+    }
+
+err:
+    if (scheme) {
+	free(scheme);
+    }
+    if (host) {
+	free(host);
+    }
+    if (path) {
+	free(path);
     }
 
     return status;

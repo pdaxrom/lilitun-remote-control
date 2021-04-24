@@ -49,7 +49,6 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 const char *json_requestType = NULL;
 const char *json_appServerUrl = NULL;
 const char *json_controlServerUrl = NULL;
-int   json_controlServerPort = 9998;
 const char *json_sessionId = NULL;
 
 static int extract_json_params(char *instr)
@@ -105,22 +104,6 @@ static int extract_json_params(char *instr)
 	} else if (jsoneq(outstr, &t[i], "sessionId") == 0) {
 	    json_sessionId = strndup(outstr + t[i + 1].start, t[i + 1].end - t[i + 1].start);
 	    i++;
-	}
-    }
-
-    if (strchr(json_controlServerUrl, ':')) {
-	char *endptr = (char *)json_controlServerUrl + strlen(json_controlServerUrl);
-	char *ptr = strchr((char *)json_controlServerUrl, ':');
-	*ptr++ = 0;
-	json_controlServerPort = 9998;
-	if (ptr) {
-	    unsigned int port = strtol(ptr, &endptr, 10);
-	    if (port == 0 || port >= USHRT_MAX || (errno == ERANGE && (port == USHRT_MAX || port == 0))
-		    || (errno != 0 && port == 0)) {
-		write_log("controlServer port error '%s'", ptr);
-	    } else {
-		json_controlServerPort = port;
-	    }
 	}
     }
 
@@ -197,7 +180,6 @@ static int parse_parameters(char *param)
 	write_log("- requestType      : %s\n", json_requestType);
 	write_log("- appServerUrl     : %s\n", json_appServerUrl);
 	write_log("- controlServerUrl : %s\n", json_controlServerUrl);
-	write_log("- controlServerPort: %d\n", json_controlServerPort);
 	write_log("- sessionId        : %s\n", json_sessionId);
 
 	return 1;

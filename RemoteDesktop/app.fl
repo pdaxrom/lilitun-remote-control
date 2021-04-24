@@ -44,9 +44,6 @@ decl {extern const char *json_appServerUrl;} {private local
 decl {extern const char *json_controlServerUrl;} {private global
 }
 
-decl {extern const int json_controlServerPort;} {private local
-}
-
 decl {extern const char *json_sessionId;} {private local
 }
 
@@ -159,12 +156,11 @@ Function {projector_thread(void *arg)} {open private return_type {void *}
   code {struct projector_t *projector = (struct projector_t *)arg;
 
 while (is_started) {
-	int status = projector_connect(projector, json_controlServerUrl, json_controlServerPort,
-		json_appServerUrl, json_sessionId, &is_started);
+	int status = projector_connect(projector, json_controlServerUrl, json_appServerUrl, json_sessionId, &is_started);
 
 	if (status == STATUS_CONNECTION_ERROR) {
-		sleep(2);
-		continue;
+	 	sleep(2);
+		 	continue;
 	}
 
 	break;
@@ -181,10 +177,11 @@ share_button->redraw();
 Fl::unlock();
 Fl::flush();
 
-return NULL;} {}
+return NULL;} {selected
+  }
 }
 
-Function {projector_start()} {open selected return_type int
+Function {projector_start()} {open return_type int
 } {
   code {struct projector_t *projector = projector_init();
 if (!projector) {
@@ -197,7 +194,6 @@ if (!projector) {
     return false;
 }
 
-projector->connection_method = CONNECTION_METHOD_WS;
 projector->cb_error = set_error;
 projector->cb_user_password = set_user_password;
 projector->cb_user_connection = set_user_connection;

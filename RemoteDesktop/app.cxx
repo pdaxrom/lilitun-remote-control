@@ -15,7 +15,6 @@ static Fl_PNG_Image *logo_gray = NULL;
 extern const char *json_requestType;
 extern const char *json_appServerUrl;
 extern const char *json_controlServerUrl;
-extern const int json_controlServerPort;
 extern const char *json_sessionId;
 static int user_port = -1; 
 static char *user_password = NULL; 
@@ -103,12 +102,11 @@ static void * projector_thread(void *arg) {
   struct projector_t *projector = (struct projector_t *)arg;
   
   while (is_started) {
-  	int status = projector_connect(projector, json_controlServerUrl, json_controlServerPort,
-  		json_appServerUrl, json_sessionId, &is_started);
+  	int status = projector_connect(projector, json_controlServerUrl, json_appServerUrl, json_sessionId, &is_started);
   
   	if (status == STATUS_CONNECTION_ERROR) {
-  		sleep(2);
-  		continue;
+  	 	sleep(2);
+  		 	continue;
   	}
   
   	break;
@@ -140,7 +138,6 @@ int projector_start() {
       return false;
   }
   
-  projector->connection_method = CONNECTION_METHOD_WS;
   projector->cb_error = set_error;
   projector->cb_user_password = set_user_password;
   projector->cb_user_connection = set_user_connection;

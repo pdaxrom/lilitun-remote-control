@@ -12,7 +12,10 @@ enum {
     STATUS_VERSION_ERROR,
     STATUS_CONNECTION_REJECTED,
     STATUS_CONNECTION_ERROR,
-    STATUS_UNSUPPORTED_REQUEST
+    STATUS_UNSUPPORTED_REQUEST,
+    STATUS_URL_PARSE_ERROR,
+    STATUS_URL_SCHEME_UNKNOWN,
+    STATUS_URL_PORT_ERROR
 };
 
 struct varblock_t {
@@ -31,7 +34,6 @@ struct projector_t {
     int blocks_y;
     char *compare_buf;
     struct varblock_t varblock;
-    int connection_method;
     tcp_channel *channel;
     int user_port;
     int user_ipv6port;
@@ -47,7 +49,7 @@ extern "C" {
 #endif
 
 struct projector_t *projector_init();
-int projector_connect(struct projector_t *projector, const char *host, int port, const char *apphost, const char *session_id, int *is_started);
+int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *session_id, int *is_started);
 void projector_finish(struct projector_t *projector);
 
 #ifdef __cplusplus
