@@ -130,11 +130,19 @@ static int check_remote_sig(struct projector_t *projector, int mode)
 	    buf[r] = 0;
 	    write_log("buf[%d]=%s\n", r, buf);
 	    if (!strncmp(buf, client_id, length)) {
+		if (!send_uint32(projector, strlen(remote_id))) {
+		    write_log("tcp_write()\n");
+		    return 0;
+		}
+		if ((r = tcp_write_all(projector, remote_id, strlen(remote_id))) <= 0) {
+		    write_log("tcp_write()\n");
+		    return 0;
+		}
 		return 1;
 	    }
 	}
     } else {
-	if ((r = tcp_write_all(projector, remote_id, strlen(client_id) + 1)) <= 0) {
+	if ((r = tcp_write_all(projector, remote_id, strlen(remote_id) + 1)) <= 0) {
 	    write_log("tcp_write()\n");
 	    return 0;
 	}
@@ -468,7 +476,7 @@ static int recv_authorization(struct projector_t *projector, char *buf, int len)
 
     len--;
 
-    length = (length > len) ? len : length;
+    length = (length < len) ? length : len;
 
     if (tcp_read_all(projector, buf, length) != length) {
 	return 0;
@@ -803,13 +811,19 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 			    status = STATUS_NOT_AUTHORIZED;
 			    break;
 		    } else if (req == REQ_AUTHORIZATION) {
-			char client_session_id[strlen(session_id) + 1];
+			char client_session_id[256];
 			if (!recv_authorization(projector, client_session_id, sizeof(client_session_id))) {
 			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
-			if (strncmp(session_id, client_session_id, strlen(session_id))) {
+			if (strcmp(session_id, client_session_id)) {
+			    write_log("Wrong password [%s]!\n", client_session_id);
 			    status = STATUS_NOT_AUTHORIZED;
+			    send_uint32(projector, 1);
+			    break;
+			}
+			if (!send_uint32(projector, 0)) {
+			    status = STATUS_CONNECTION_ERROR;
 			    break;
 			}
 			authorized = 1;
