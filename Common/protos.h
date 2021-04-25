@@ -15,6 +15,7 @@ enum {
     REQ_APPSERVER_HOST,
     REQ_SESSION_ID,
     REQ_HOSTNAME,
+    REQ_AUTHORIZATION,
     REQ_STOP
 };
 
@@ -83,6 +84,11 @@ typedef struct __attribute__ ((__packed__)) {
     uint32_t req;
     uint32_t length;
 } req_session_id;
+
+typedef struct __attribute__ ((__packed__)) {
+    uint32_t req;
+    uint32_t length;
+} req_authorization;
 
 typedef struct __attribute__ ((__packed__)) {
     uint32_t req;

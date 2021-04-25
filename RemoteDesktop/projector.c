@@ -439,6 +439,27 @@ static int send_req_hostname(struct projector_t *projector)
     return 1;
 }
 
+static int recv_authorization(struct projector_t *projector, char *buf, int len)
+{
+    uint32_t length = 0;
+
+    if (!recv_uint32(projector, &length)) {
+	return 0;
+    }
+
+    len--;
+
+    length = (length > len) ? len : length;
+
+    if (tcp_read_all(projector, buf, length) != length) {
+	return 0;
+    }
+
+    buf[length] = 0;
+
+    return 1;
+}
+
 static int recv_user_password(struct projector_t *projector)
 {
     uint32_t length = 0;
@@ -750,6 +771,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;
 	} else if (check_remote_sig(projector)) {
+	    int authorized = 0;
 	    write_log("Start screen sharing\n");
 	    projector->cb_error("Online");
 	    while (*is_started) {
@@ -757,7 +779,22 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 //		write_log("Waiting request\n");
 		if (recv_uint32(projector, &req)) {
 //		    write_log("Received request %d\n", req);
-		    if (req == REQ_SCREEN_INFO) {
+		    if (!authorized && req != REQ_AUTHORIZATION) {
+			    write_log("Not authorized!\n");
+			    status = STATUS_NOT_AUTHORIZED;
+			    break;
+		    } else if (req == REQ_AUTHORIZATION) {
+			char client_session_id[strlen(session_id) + 1];
+			if (!recv_authorization(projector, client_session_id, sizeof(client_session_id))) {
+			    status = STATUS_CONNECTION_ERROR;
+			    break;
+			}
+			if (strncmp(session_id, client_session_id, strlen(session_id))) {
+			    status = STATUS_NOT_AUTHORIZED;
+			    break;
+			}
+			authorized = 1;
+		    } else if (req == REQ_SCREEN_INFO) {
 			if (!send_req_screen_info(projector)) {
 			    status = STATUS_CONNECTION_ERROR;
 			    break;

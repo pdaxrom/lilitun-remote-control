@@ -169,6 +169,7 @@ static int register_uri_scheme(char *app)
 const char *server_url = NULL;
 const char *server_privkey = NULL;
 const char *server_cert = NULL;
+const char *server_session_id = NULL;
 
 static int parse_parameters(int *argc, char **argv[])
 {
@@ -194,9 +195,10 @@ static int parse_parameters(int *argc, char **argv[])
 	server_url = (*argv)[1];
 	server_privkey = (*argv)[2];
 	server_cert = (*argv)[3];
+	server_session_id = (*argv)[4];
 
-	*argv = *argv + 3;
-	*argc = *argc - 3;
+	*argv = *argv + 4;
+	*argc = *argc - 4;
 
 	return 1;
     }
@@ -248,8 +250,6 @@ int main(int argc, char *argv[])
 #endif
 
     if (argc > 1 && parse_parameters(&argc, &argv)) {
-//	argc--;
-//	argv++;
 #ifdef __APPLE__
     }
 #endif
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
 	write_log("Start app!\n");
 
-	if (!json_requestType) {
+	if (!json_requestType || server_url) {
 	    fprintf(stderr, "No parameters, exit...\n");
 	    return 0;
 	}
