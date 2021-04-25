@@ -238,7 +238,8 @@ socket.onmessage = function(event) {
 //		console.log("no regions");
 		request = Request.REQ_SCREEN_UPDATE;
 		state = State.ReadAck;
-		send_request(socket, request);
+//		send_request(socket, request);
+		setTimeout(() => send_request(socket, request), 50);
 	    }
 	} else if (state == State.ReadRegionData) {
 	    if (RegionHeader.depth == Pix.PIX_JPEG_RGBA || RegionHeader.depth == Pix.PIX_JPEG_BGRA) {
@@ -263,7 +264,8 @@ socket.onmessage = function(event) {
 //		console.log("no regions");
 		request = Request.REQ_SCREEN_UPDATE;
 		state = State.ReadAck;
-		send_request(socket, request);
+//		send_request(socket, request);
+		setTimeout(() => send_request(socket, request), 50);
 	    }
 	}
     }
