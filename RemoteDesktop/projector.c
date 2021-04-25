@@ -20,8 +20,9 @@
 
 extern void write_log(const char *fmt, ...);
 
-static char *client_id = CLIENT_ID;
+static char *remote_id = REMOTE_ID;
 static char *server_id = SERVER_ID;
+static char *client_id = CLIENT_ID;
 
 static struct projector_t *init_fb(void)
 {
@@ -111,20 +112,38 @@ static int recv_uint32(struct projector_t *projector, uint32_t * data)
     return 1;
 }
 
-static int check_remote_sig(struct projector_t *projector)
+static int check_remote_sig(struct projector_t *projector, int mode)
 {
     int r;
     char buf[256];
 
-    if ((r = tcp_write_all(projector, client_id, strlen(client_id) + 1)) <= 0) {
-	write_log("tcp_write()\n");
-	return 0;
-    }
+    if (mode) {
+	uint32_t length = 0;
 
-    if ((r = tcp_read_all(projector, buf, strlen(server_id) + 1)) == (strlen(server_id) + 1)) {
-	write_log("buf[%d]=%s\n", r, buf);
-	if (!strcmp(buf, server_id)) {
-	    return 1;
+	if (!recv_uint32(projector, &length)) {
+	    return 0;
+	}
+
+	length = (length > sizeof(buf)) ? sizeof(buf) : length;
+
+	if ((r = tcp_read_all(projector, buf, length)) == length) {
+	    buf[r] = 0;
+	    write_log("buf[%d]=%s\n", r, buf);
+	    if (!strncmp(buf, client_id, length)) {
+		return 1;
+	    }
+	}
+    } else {
+	if ((r = tcp_write_all(projector, remote_id, strlen(client_id) + 1)) <= 0) {
+	    write_log("tcp_write()\n");
+	    return 0;
+	}
+
+	if ((r = tcp_read_all(projector, buf, strlen(server_id) + 1)) == (strlen(server_id) + 1)) {
+	    write_log("buf[%d]=%s\n", r, buf);
+	    if (!strcmp(buf, server_id)) {
+		return 1;
+	    }
 	}
     }
 
@@ -699,7 +718,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	goto err;
     }
 
-    write_log("Connection:\n scheme %s\n host %s\nport %d\npath %s\n", scheme, host, port, path);
+    write_log("Connection:\n scheme %s\n host %s\n port %d\n path %s\n", scheme, host, port, path);
 
     int connect_method = -1;
     int connect_type = -1;
@@ -770,7 +789,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    write_log("%s: http ws method error!\n", __func__);
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;
-	} else if (check_remote_sig(projector)) {
+	} else if (check_remote_sig(projector, (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER))) {
 	    int authorized = 0;
 	    write_log("Start screen sharing\n");
 	    projector->cb_error("Online");

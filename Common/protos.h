@@ -1,8 +1,9 @@
 #ifndef __PROTOS_H__
 #define __PROTOS_H__
 
-#define CLIENT_ID	"Projector application 1.0"
-#define SERVER_ID	"Screen sharing server 1.0"
+#define REMOTE_ID	"Remote access application 1.0   "
+#define SERVER_ID	"Remote sharing server 1.0       "
+#define CLIENT_ID	"Remote client application 1.0   "
 
 enum {
     REQ_ERROR = 0,
