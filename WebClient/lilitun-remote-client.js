@@ -114,10 +114,16 @@ function start_client() {
     let data_len = 0;
     let regions = 0;
 
-    let canvas;
     let ctx;
-
-    canvas = document.getElementById('canvas');
+    let pixelRatio = window.devicePixelRatio || 1;
+    let canvas = document.getElementById('canvas');
+    let win_w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    let win_h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    console.log("Pixel ratio " + pixelRatio);
+    console.log("Windows width " + win_w * pixelRatio);
+    console.log("Windows height " + win_h * pixelRatio);
+    canvas.style.width = `${win_w}px`;
+    canvas.style.height = `${win_h}px`;
 
     let socket = new WebSocket("wss://localhost:4443/projector-ws", ['binary']);
 
@@ -129,6 +135,21 @@ function start_client() {
 	state = State.ReadUint32;
 	request = Request.REQ_SIGNATURE;
 	send_string(socket, CLIENT_ID);
+
+//	canvas.addEventListener('mousemove', e => {
+//	    console.log("Mouse X " + e.clientX);
+//	    console.log("Mouse Y " + e.clientY);
+//	});
+
+	canvas.addEventListener('mousedown', e => {
+	    console.log("D Mouse X " + e.clientX);
+	    console.log("D Mouse Y " + e.clientY);
+	});
+
+	canvas.addEventListener('mouseup', e => {
+	    console.log("U Mouse X " + e.clientX);
+	    console.log("U Mouse Y " + e.clientY);
+	});
     };
 
     socket.onmessage = function(event) {
@@ -179,15 +200,9 @@ function start_client() {
 		    console.log("depth = " + ScreenInfo.depth);
 		    console.log("pixelformat = " + ScreenInfo.pixelformat);
 
-		    const pixelRatio = window.devicePixelRatio || 1;
-		    console.log("Pixel ratio " + pixelRatio);
-		    let w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-		    let h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 		    canvas.width = ScreenInfo.width;
 		    canvas.height = ScreenInfo.height;
 
-		    canvas.style.width = `${w}px`;
-		    canvas.style.height = `${h}px`;
 		    ctx = canvas.getContext('2d');
 		    ctx.mozImageSmoothingEnabled = false;
 		    ctx.imageSmoothingEnabled = false;
