@@ -57,22 +57,22 @@ function strlen(string) {
 }
 
 function array_append(buffer1, buffer2) {
-  let tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
-  tmp.set(new Uint8Array(buffer1), 0);
-  tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
-  return tmp;
+    let tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+    tmp.set(new Uint8Array(buffer1), 0);
+    tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
+    return tmp;
 };
 
 function send_string(socket, string) {
-  socket.send(htonl(strlen(string)));
-  socket.send(new Blob([string]));
+    socket.send(htonl(strlen(string)));
+    socket.send(new Blob([string]));
 }
 
 function send_password(socket, password) {
-  let data = array_append(htonl(Request.REQ_AUTHORIZATION), htonl(strlen(PASSWORD)));
-  state = State.ReadAck;
-  socket.send(data);
-  socket.send(new Blob([password]));
+    let data = array_append(htonl(Request.REQ_AUTHORIZATION), htonl(strlen(PASSWORD)));
+    state = State.ReadAck;
+    socket.send(data);
+    socket.send(new Blob([password]));
 }
 
 function send_request(socket, request) {
@@ -86,6 +86,15 @@ function mouse_event(buttons, x, y, wheel) {
     this.wheel = wheel;
 }
 
+function send_mouse_event(socket, event) {
+    let tmp = new Uint8Array(20);
+    tmp.set(htonl(Request.REQ_POINTER), 0);
+    tmp.set(htonl(event.buttons), 4);
+    tmp.set(htonl(event.x), 8);
+    tmp.set(htonl(event.y), 12);
+    tmp.set(htonl(event.wheel), 16);
+    socket.send(tmp);
+}
 
 function start_client() {
     let ScreenInfo = {
@@ -109,6 +118,11 @@ function start_client() {
     let mouse_events = [];
     let keyboard_events = [];
 
+    let mouse_buttons = 0;
+    let mouse_x = 0;
+    let mouse_y = 0;
+    let mouse_wheel = 0;
+
     let state = 0;
     let request = 0;
     let data_len = 0;
@@ -119,6 +133,7 @@ function start_client() {
     let canvas = document.getElementById('canvas');
     let win_w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
     let win_h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+
     console.log("Pixel ratio " + pixelRatio);
     console.log("Windows width " + win_w * pixelRatio);
     console.log("Windows height " + win_h * pixelRatio);
@@ -136,19 +151,24 @@ function start_client() {
 	request = Request.REQ_SIGNATURE;
 	send_string(socket, CLIENT_ID);
 
-//	canvas.addEventListener('mousemove', e => {
-//	    console.log("Mouse X " + e.clientX);
-//	    console.log("Mouse Y " + e.clientY);
-//	});
+	canvas.addEventListener('mousemove', e => {
+	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+	});
 
 	canvas.addEventListener('mousedown', e => {
-	    console.log("D Mouse X " + e.clientX);
-	    console.log("D Mouse Y " + e.clientY);
+	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	    mouse_buttons |= (1 << event.button);
+	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
 	});
 
 	canvas.addEventListener('mouseup', e => {
-	    console.log("U Mouse X " + e.clientX);
-	    console.log("U Mouse Y " + e.clientY);
+	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	    mouse_buttons &= ~(1 << event.button);
+	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
 	});
     };
 
@@ -233,7 +253,7 @@ function start_client() {
 		    reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
 //		    console.log("Reply " + reply);
 		    regions = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
-		    console.log("Regions " + regions);
+//		    console.log("Regions " + regions);
 		    state = State.ReadRegionHeader;
 		} else if (state == State.ReadRegionHeader) {
 		    regions--;
@@ -253,6 +273,9 @@ function start_client() {
 		    if (RegionHeader.size > 0) {
 			state = State.ReadRegionData;
 		    } else if (regions == 0) {
+			while (mouse_events.length > 0) {
+			    send_mouse_event(socket, mouse_events.shift());
+			}
 //			console.log("no regions");
 			request = Request.REQ_SCREEN_UPDATE;
 			state = State.ReadAck;
@@ -279,6 +302,9 @@ function start_client() {
 		    if (regions > 0) {
 			state = State.ReadRegionHeader;
 		    } else {
+			while (mouse_events.length > 0) {
+			    send_mouse_event(socket, mouse_events.shift());
+			}
 //			console.log("no regions");
 			request = Request.REQ_SCREEN_UPDATE;
 			state = State.ReadAck;
