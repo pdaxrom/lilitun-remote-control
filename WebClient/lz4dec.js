@@ -14,7 +14,7 @@ function LZ4() {
 
     this.makeBuffer = function makeBuffer (size) {
 	try {
-	    return new Uint8Array(size);
+	    return new Uint8ClampedArray(size);
 	} catch (error) {
 	    var buf = new Array(size);
 
@@ -28,10 +28,10 @@ function LZ4() {
 
     function sliceArray (array, start, end) {
 	if (typeof array.buffer !== undefined) {
-	    if (Uint8Array.prototype.slice) {
+	    if (Uint8ClampedArray.prototype.slice) {
 		return array.slice(start, end);
 	    } else {
-		// Uint8Array#slice polyfill.
+		// Uint8ClampedArray#slice polyfill.
 		var len = array.length;
 
 		// Calculate start.
@@ -43,7 +43,7 @@ function LZ4() {
 		end = (end < 0) ? Math.max(len + end, 0) : Math.min(end, len);
 
 		// Copy into new array.
-		var arraySlice = new Uint8Array(end - start);
+		var arraySlice = new Uint8ClampedArray(end - start);
 		for (var i = start, n = 0; i < end;) {
 		    arraySlice[n++] = array[i++];
 		}
@@ -130,16 +130,10 @@ function LZ4() {
 	return dIndex;
     };
 
-    this.decompress = function decompress(src, dst) {
-	let maxSize = src[0] << 8 | src[1];
-
-	console.log("len = " + maxSize);
-
+    this.decompress = function decompress(src, maxSize) {
 	dst = this.makeBuffer(maxSize);
 
-	size = this.decompressBlock(src, dst, 2, maxSize, 0);
-
-	console.log("decoded size = " + size);
+	size = this.decompressBlock(src, dst, 0, maxSize, 0);
 
 	if (size !== maxSize) {
 	    dst = sliceArray(dst, 0, size);
@@ -149,9 +143,10 @@ function LZ4() {
     }
 }
 
+/*
 function byteArray (arg) {
-  if (Uint8Array) {
-    return new Uint8Array(arg);
+  if (Uint8ClampedArray) {
+    return new Uint8ClampedArray(arg);
   } else {
     if (typeof arg === 'number' || typeof arg === 'undefined') {
       return new Array(arg);
@@ -162,7 +157,6 @@ function byteArray (arg) {
 }
 
 var input = byteArray([
-0x00, 0x50,
 0xf1, 0x0d, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 
 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21, 0x20, 0x68, 
 0x61, 0x68, 0x61, 0x2c, 0x20, 0x73, 0x6f, 0x6d, 
@@ -175,4 +169,5 @@ var input = byteArray([
 
 var lz4 = new LZ4();
 
-console.log(lz4.decompress(input));
+console.log(lz4.decompress(input, 80));
+ */

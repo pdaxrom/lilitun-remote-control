@@ -115,6 +115,8 @@ function start_client() {
 
     let RemoteHost = "Unknown";
 
+    let lz4 = new LZ4();
+
     let mouse_events = [];
     let keyboard_events = [];
 
@@ -284,7 +286,7 @@ function start_client() {
 		    }
 		} else if (state == State.ReadRegionData) {
 		    if (RegionHeader.depth == Pix.PIX_JPEG_RGBA || RegionHeader.depth == Pix.PIX_JPEG_BGRA) {
-			tmp = new Uint8Array(buffer);
+			let tmp = new Uint8Array(buffer);
 			const blob = new Blob([tmp], {type: 'image/jpeg'});
 			const image = new Image();
 			image.src = URL.createObjectURL(blob);
@@ -293,9 +295,27 @@ function start_client() {
 			const w = RegionHeader.width;
 			const h = RegionHeader.height;
 			image.onload = function() {
-//			    console.log("draw image on " + x + ", " + y + " - " + w + ", " + h);
 			    ctx.drawImage(this, x, y, w, h);
 			}
+		    } else if (RegionHeader.depth == Pix.PIX_LZ4_RGBA || RegionHeader.depth == Pix.PIX_LZ4_BGRA) {
+			let img_data = lz4.decompress(new Uint8ClampedArray(buffer), RegionHeader.width * RegionHeader.height * 4);
+			for (i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
+			    let swap = img_data[i + 0];
+			    img_data[i + 0] = img_data[i + 2];
+			    img_data[i + 2] = swap;
+			    img_data[i + 3] = 0xff; //tmp[i + 3];
+			}
+			ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
+		    } else if (RegionHeader.depth == Pix.PIX_RAW_RGBA || RegionHeader.depth == Pix.PIX_RAW_BGRA) {
+			let tmp = new Uint8Array(buffer);
+			let img_data = new Uint8ClampedArray(RegionHeader.width * RegionHeader.height * 4);
+			for (i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
+			    img_data[i + 0] = tmp[i + 2];
+			    img_data[i + 1] = tmp[i + 1];
+			    img_data[i + 2] = tmp[i + 0];
+			    img_data[i + 3] = 0xff; //tmp[i + 3];
+			}
+			ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
 		    } else {
 			console.log("Unsupported pixels yet " + RegionHeader.depth);
 		    }
