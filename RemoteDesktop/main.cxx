@@ -215,8 +215,17 @@ static void url_handler(const char *str)
 {
     write_log("url [%s]\n", str);
 
-    if (!parse_parameters((char *)str)) {
-	exit(1);
+    if (!strncmp(str, x_scheme_handler, strlen(x_scheme_handler))) {
+	if (!extract_json_params(str + strlen(x_scheme_handler))) {
+	    write_log("Unknown scheme!\n");
+
+	    exit(1);
+	}
+
+	write_log("- requestType      : %s\n", json_requestType);
+	write_log("- appServerUrl     : %s\n", json_appServerUrl);
+	write_log("- controlServerUrl : %s\n", json_controlServerUrl);
+	write_log("- sessionId        : %s\n", json_sessionId);
     }
 }
 #endif
