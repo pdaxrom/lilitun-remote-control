@@ -3,6 +3,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <signal.h>
+
+#ifdef _WIN32
+#define SIGHUP	1
+#define SIGINT	2
+#define SIGUSR1	10
+#define SIGPIPE	13
+#endif
 
 #include "../Common/protos.h"
 #include <simple-connection/tcp.h>
@@ -395,7 +403,7 @@ static void update_screen(void *arg, void *fb)
     }
 
     int i = 0;
-    while(region_count-- > 0) {
+    while (region_count--) {
 	send_screen_update_header(projector, region[i].x, region[i].y, region[i].width, region[i].height, region[i].pixfmt, region[i].length);
 
 	if (tcp_write_all(projector, (char *)region[i].data, region[i].length) != region[i].length) {
@@ -608,6 +616,8 @@ static int recv_pointer(struct projector_t *projector)
 
 struct projector_t *projector_init()
 {
+    signal(SIGPIPE, SIG_IGN);
+
     write_log("Initializing screen device ...\n");
     return init_fb();
 }

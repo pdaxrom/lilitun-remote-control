@@ -457,7 +457,11 @@ static void *remote_connection_thread(void *arg)
 		break;
 	    }
 
-	    while (regions-- > 0) {
+	    if (!regions) {
+		pthread_mutex_unlock(&conn->projector_io_mutex);
+	    }
+
+	    while (regions--) {
 		uint32_t x, y, width, height, pixfmt, pixlen, rlen;
 
 		if (!do_req_screen_update_region(conn->channel, &x, &y, &width, &height, &pixfmt, &pixlen)) {
