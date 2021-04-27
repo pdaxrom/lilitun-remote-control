@@ -310,11 +310,11 @@ static void screen_diff(struct projector_t *projector, void *framebuffer, int re
 	    pixfmt = PIX_RAW_BGRA;
 
 	    char *tmpbuf = (char *) malloc(outlen);
-	    int tmplen = LZ4_compress_default(outbuffer, tmpbuf, outlen, outlen);
+	    int tmplen = LZ4_compress_default((const char *)outbuffer, tmpbuf, outlen, outlen);
 
 	    if (tmplen > 0 && tmplen < outlen) {
 		free(outbuffer);
-		outbuffer = tmpbuf;
+		outbuffer = (unsigned char *)tmpbuf;
 		outlen = tmplen;
 		pixfmt = PIX_LZ4_BGRA;
 	    } else {
@@ -798,7 +798,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;
 	} else if (check_remote_sig(projector, (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER))) {
-	    int authorized = 0;
+	    int authorized = !(connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER);
 	    write_log("Start screen sharing\n");
 	    projector->cb_error("Online");
 	    while (*is_started) {

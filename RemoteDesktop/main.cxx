@@ -216,7 +216,7 @@ static void url_handler(const char *str)
     write_log("url [%s]\n", str);
 
     if (!strncmp(str, x_scheme_handler, strlen(x_scheme_handler))) {
-	if (!extract_json_params(str + strlen(x_scheme_handler))) {
+	if (!extract_json_params((char *)str + strlen(x_scheme_handler))) {
 	    write_log("Unknown scheme!\n");
 
 	    exit(1);

@@ -18,7 +18,7 @@
 
 static int is_not_exit = 1;
 
-static char *client_id = CLIENT_ID;
+static char *remote_id = REMOTE_ID;
 static char *server_id = SERVER_ID;
 
 static struct list_item *remote_connections_list = NULL;
@@ -72,17 +72,17 @@ static int check_remote_sig(tcp_channel * channel)
     int r;
     char buf[256];
 
-    if ((r = tcp_read_all(channel, buf, strlen(client_id) + 1)) != (strlen(client_id) + 1)) {
+    if ((r = tcp_read_all(channel, buf, strlen(remote_id) + 1)) != (strlen(remote_id) + 1)) {
 	fprintf(stderr, "%s: tcp_read()\n", __func__);
 	return 0;
     }
 
     fprintf(stderr, "buf[%d]=%s\n", r, buf);
-    if (strcmp(buf, client_id)) {
+    if (strcmp(buf, remote_id)) {
 	return 0;
     }
 
-    if ((r = tcp_write(channel, server_id, strlen(client_id) + 1)) <= 0) {
+    if ((r = tcp_write(channel, server_id, strlen(server_id) + 1)) <= 0) {
 	fprintf(stderr, "%s: tcp_write()\n", __func__);
 	return 0;
     }
