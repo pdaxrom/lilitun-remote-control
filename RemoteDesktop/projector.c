@@ -24,6 +24,16 @@ static char *remote_id = REMOTE_ID;
 static char *server_id = SERVER_ID;
 static char *client_id = CLIENT_ID;
 
+struct region_data {
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+    uint32_t pixfmt;
+    uint32_t length;
+    uint8_t *data;
+};
+
 static struct projector_t *init_fb(void)
 {
     struct projector_t *projector = (struct projector_t *)malloc(sizeof(struct projector_t));
@@ -202,7 +212,7 @@ static unsigned char *get_raw_screen_data(struct projector_t *projector, int reg
     return buffer;
 }
 
-static void screen_diff(struct projector_t *projector, void *framebuffer, int reg_x, int reg_y, int reg_w, int reg_h)
+static int screen_diff(struct projector_t *projector, void *framebuffer, int reg_x, int reg_y, int reg_w, int reg_h, struct region_data *region)
 {
     int x, y;
     int xstep = 4 / projector->scrDepth;
@@ -322,16 +332,26 @@ static void screen_diff(struct projector_t *projector, void *framebuffer, int re
 	    }
 	}
 
+	region->x = projector->varblock.min_x;
+	region->y = projector->varblock.min_y;
+	region->width = rect_width;
+	region->height = rect_height;
+	region->pixfmt = pixfmt;
+	region->length = outlen;
+	region->data = outbuffer;
+
+	return 1;
+
 //	write_log("Update header\n");
-	send_screen_update_header(projector,
-				  projector->varblock.min_x,
-				  projector->varblock.min_y, rect_width, rect_height, pixfmt, outlen);
+//	send_screen_update_header(projector,
+//				  projector->varblock.min_x,
+//				  projector->varblock.min_y, rect_width, rect_height, pixfmt, outlen);
 
 //	write_log("send screen %d - %02X %02X %02X %02X\n", outlen, outbuffer[0], outbuffer[1], outbuffer[2], outbuffer[3]);
 
-	if (tcp_write_all(projector, (char *)outbuffer, outlen) != outlen) {
-	    write_log("Error sending framebuffer!\n");
-	}
+//	if (tcp_write_all(projector, (char *)outbuffer, outlen) != outlen) {
+//	    write_log("Error sending framebuffer!\n");
+//	}
 
 #if PICS_DUMP
 	static int fnamecount = 0;
@@ -340,11 +360,12 @@ static void screen_diff(struct projector_t *projector, void *framebuffer, int re
 	dump_file(fname, (char *)outbuffer, outlen);
 #endif
 
-	free(outbuffer);
+//	free(outbuffer);
     } else {
 	//write_log("Update header\n");
-	send_screen_update_header(projector, 0, 0, 0, 0, 0, 0);
+//	send_screen_update_header(projector, 0, 0, 0, 0, 0, 0);
 	//write_log("send screen %d\n", 0);
+	return 0;
     }
 }
 
@@ -352,19 +373,36 @@ static void update_screen(void *arg, void *fb)
 {
     struct projector_t *projector = (struct projector_t *)arg;
 
-    req_screen_regions data = {
-	.req = htonl(REQ_SCREEN_UPDATE),
-	.regions = htonl(projector->blocks_x * projector->blocks_y)
-    };
+    struct region_data region[projector->blocks_x * projector->blocks_y];
 
-    if (tcp_write_all(projector, (char *)&data, sizeof(data)) != sizeof(data)) {
-	return;
-    }
+    int region_count = 0;
 
     for (int y = 0; y < projector->blocks_y; y++) {
 	for (int x = 0; x < projector->blocks_x; x++) {
-	    screen_diff(projector, fb, x * BLOCK_WIDTH, y * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT);
+	    if (screen_diff(projector, fb, x * BLOCK_WIDTH, y * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, &region[region_count])) {
+		region_count++;
+	    }
 	}
+    }
+
+    req_screen_regions req = {
+	.req = htonl(REQ_SCREEN_UPDATE),
+	.regions = htonl(region_count)
+    };
+
+    if (tcp_write_all(projector, (char *)&req, sizeof(req)) != sizeof(req)) {
+	return;
+    }
+
+    int i = 0;
+    while(region_count-- > 0) {
+	send_screen_update_header(projector, region[i].x, region[i].y, region[i].width, region[i].height, region[i].pixfmt, region[i].length);
+
+	if (tcp_write_all(projector, (char *)region[i].data, region[i].length) != region[i].length) {
+	    write_log("Error sending framebuffer!\n");
+	}
+	free(region[i].data);
+	i++;
     }
 }
 

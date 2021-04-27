@@ -257,6 +257,14 @@ function start_client() {
 		    regions = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
 //		    console.log("Regions " + regions);
 		    state = State.ReadRegionHeader;
+		    if (regions == 0) {
+			while (mouse_events.length > 0) {
+			    send_mouse_event(socket, mouse_events.shift());
+			}
+			request = Request.REQ_SCREEN_UPDATE;
+			state = State.ReadAck;
+			setTimeout(() => send_request(socket, request), 50);
+		    }
 		} else if (state == State.ReadRegionHeader) {
 		    regions--;
 		    tmp = new Uint8Array(buffer);
