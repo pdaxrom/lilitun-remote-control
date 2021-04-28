@@ -141,7 +141,7 @@ int message_send(char *host, char *msg)
 
     if (scheme &&
 	(!strcmp(scheme, "ws://") || (!strcmp(scheme, "wss://"))) &&
-	(!tcp_connection_upgrade(server, SIMPLE_CONNECTION_METHOD_WS, path))) {
+	(!tcp_connection_upgrade(server, SIMPLE_CONNECTION_METHOD_WS, path, NULL, 0))) {
 	fprintf(stderr, "%s: http ws method error!\n", __func__);
 	goto err;
     } else {

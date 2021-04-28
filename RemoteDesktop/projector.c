@@ -760,6 +760,18 @@ static int parse_url(char *link, char **scheme, char **host, uint16_t *port, cha
     return ret;
 }
 
+static char *header_get_path(char *header)
+{
+    char *tmp = strchr(header, ' ');
+    if (tmp) {
+	char *tmp1 = strchr(tmp + 1, ' ');
+	if (tmp1) {
+	    return strndup(tmp + 1, tmp1 - tmp - 1);
+	}
+    }
+    return NULL;
+}
+
 int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey, const char *cert, const char *session_id, int *is_started)
 {
     int status = STATUS_OK;
@@ -834,18 +846,35 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    break;
 	}
 
+	char request[1024];
+	if ((connect_method == CONNECTION_METHOD_WS) &&
+	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path, request, sizeof(request)))) {
+	    write_log("http request %s\n", request);
+
+	    char *file_path = header_get_path(request);
+	    if (!strncmp(request, "GET ", 4) && !strncmp(path, file_path, strlen(path))) {
+		write_log("requested path %s\n", file_path);
+
+		free(file_path);
+		snprintf(request, sizeof(request), "HTTP/1.1 404 Not Found\r\n\r\n");
+		tcp_write(projector->channel, request, strlen(request));
+		tcp_close(projector->channel);
+		continue;
+	    }
+
+	    free(file_path);
+	    write_log("%s: http ws method error!\n", __func__);
+	    status = STATUS_CONNECTION_REJECTED;
+	    *is_started = 0;
+	}
+
 	if (!*is_started) {
 	    break;
 	}
     }
 
     if (projector->channel && check_ssl_certificate(projector)) {
-	if ((connect_method == CONNECTION_METHOD_WS) &&
-	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path))) {
-	    write_log("%s: http ws method error!\n", __func__);
-	    status = STATUS_CONNECTION_REJECTED;
-	    *is_started = 0;
-	} else if (check_remote_sig(projector, (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER))) {
+	if (check_remote_sig(projector, (connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER))) {
 	    int authorized = !(connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER);
 	    write_log("Start screen sharing\n");
 	    projector->cb_error("Online");

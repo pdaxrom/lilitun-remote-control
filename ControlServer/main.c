@@ -366,7 +366,7 @@ static void *remote_connection_thread(void *arg)
 
     pthread_detach(pthread_self());
 
-    if (!tcp_connection_upgrade(conn->channel, SIMPLE_CONNECTION_METHOD_WS, "/projector-ws")) {
+    if (!tcp_connection_upgrade(conn->channel, SIMPLE_CONNECTION_METHOD_WS, "/projector-ws", NULL, 0)) {
 	fprintf(stderr, "%s: http ws method error!\n", __func__);
 	tcp_close(conn->channel);
 	free(conn);
