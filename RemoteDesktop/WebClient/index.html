@@ -1,5 +1,8 @@
 <html>
 <head>
+<title>Remote desktop access</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="shortcut icon" href="/lilitun-remote-desktop-color.png" type="image/png">
 <link rel="stylesheet" type="text/css" href="style.css" />
 <script src="lz4dec.js"></script>
 <script src="lilitun-remote-client.js"></script>
@@ -15,13 +18,13 @@ function onerror(err, msg) {
 
     document.getElementById("error").innerHTML = msg;
     document.getElementById("canvas").style.display="none";
-    document.getElementById("connect_form").style.display="block";
+    document.getElementById("connect").style.display="block";
 }
 
 function connect() {
     let url = document.getElementById("url").value;
     let password = document.getElementById("password").value;
-    document.getElementById("connect_form").style.display="none";
+    document.getElementById("connect").style.display="none";
     document.getElementById("canvas").style.display="block";
     start_client(url, password, onerror);
 
@@ -31,7 +34,9 @@ function connect() {
 </script>
 </head>
 <body>
-<div id="connect_form" class="connect_form">
+<div id="connect" class="connect">
+  <img src="lilitun-remote-desktop-color.png">
+  <div id="connect_form" class="connect_form">
     <form onsubmit="return connect();">
 	<label for="url">Remote</label>
 	<input id="url" type="text">
@@ -39,7 +44,8 @@ function connect() {
 	<input id="password" type="password">
 	<input type="submit">
     </form>
-    <span class="err" id="error"></span>
+  </div>
+  <div class="message"><span class="err" id="error"></span></div>
 </div>
 <canvas id="canvas" oncontextmenu="return false;"></canvas>
 </body>
