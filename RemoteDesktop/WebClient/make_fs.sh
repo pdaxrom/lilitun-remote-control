@@ -42,7 +42,7 @@ while [ "$1" != "" ]; do
 #	FILES_SZ="$FILES_SZ $(stat -c "%s" "$1")"
 	SIZE=$(stat -c "%s" "$1")
 	MIME=$(get_mime $1)
-	echo "    { \"$1\", $SIZE, \"$MIME\", $OFFSET }," >> /dev/stdout
+	echo "    { \"/$1\", $SIZE, \"$MIME\", $OFFSET }," >> /dev/stdout
 	OFFSET=$((OFFSET + $SIZE))
     fi
     shift

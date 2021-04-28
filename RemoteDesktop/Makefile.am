@@ -51,7 +51,7 @@ endif
 	$(RC) $^ -o $@
 
 pseudofs.c:
-	$(top_srcdir)/WebClient/make_fs.sh $(top_srcdir)/WebClient lilitun-remote-client.html lilitun-remote-client.js lz4dec.js > $@
+	$(top_srcdir)/WebClient/make_fs.sh $(top_srcdir)/WebClient index.html lilitun-remote-client.js lz4dec.js style.css > $@
 
 clean-local:
 	rm -f pseudofs.c

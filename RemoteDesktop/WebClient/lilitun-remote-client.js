@@ -1,5 +1,4 @@
 const CLIENT_ID = "Remote client application 1.0   ";
-const PASSWORD = "helloworld";
 
 const Request = {
     REQ_ERROR : 0,
@@ -69,7 +68,7 @@ function send_string(socket, string) {
 }
 
 function send_password(socket, password) {
-    let data = array_append(htonl(Request.REQ_AUTHORIZATION), htonl(strlen(PASSWORD)));
+    let data = array_append(htonl(Request.REQ_AUTHORIZATION), htonl(strlen(password)));
     state = State.ReadAck;
     socket.send(data);
     socket.send(new Blob([password]));
@@ -96,7 +95,7 @@ function send_mouse_event(socket, event) {
     socket.send(tmp);
 }
 
-function start_client() {
+function start_client(remote_url, password, onerror) {
     let ScreenInfo = {
 	width : 0,
 	height : 0,
@@ -142,7 +141,9 @@ function start_client() {
     canvas.style.width = `${win_w}px`;
     canvas.style.height = `${win_h}px`;
 
-    let socket = new WebSocket("wss://localhost:4443/projector-ws", ['binary']);
+//    let socket = new WebSocket("wss://localhost:4443/projector-ws", ['binary']);
+//    let socket = new WebSocket(location.protocol + location.host + "/projector-ws", ['binary']);
+    let socket = new WebSocket(remote_url, ['binary']);
 
     console.log(socket.binaryType);
 
@@ -194,7 +195,7 @@ function start_client() {
 
 			request = Request.REQ_AUTHORIZATION;
 			state = State.ReadAck;
-			send_password(socket, PASSWORD);
+			send_password(socket, password);
 		    }
 		}
 	    } else if (request == Request.REQ_AUTHORIZATION) {
@@ -202,6 +203,7 @@ function start_client() {
 		    status = ntohl(new Uint8Array(buffer));
 		    if (status != 0) {
 			console.log("Wrong password!");
+			onerror(1, "Bad password");
 		    }
 
 		    request = Request.REQ_SCREEN_INFO;
@@ -347,10 +349,12 @@ function start_client() {
     socket.onclose = function(event) {
 	if (event.wasClean) {
 	    console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+	    onerror(0, "Disconnected");
 	} else {
 	    // e.g. server process killed or network down
 	    // event.code is usually 1006 in this case
 	    console.log('[close] Connection died');
+	    onerror(2, "Connection error");
 	}
     };
 
@@ -359,6 +363,6 @@ function start_client() {
     };
 }
 
-window.onload = function() {
-    start_client();
-}
+//window.onload = function() {
+//    start_client();
+//}

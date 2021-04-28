@@ -850,20 +850,20 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	char request[1024];
 	if ((connect_method == CONNECTION_METHOD_WS) &&
 	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path, request, sizeof(request)))) {
-	    write_log("http request %s\n", request);
+//	    write_log("http request %s\n", request);
 
 	    char *file_path = header_get_path(request);
-	    if (!strncmp(request, "GET ", 4) && !strncmp(path, file_path, strlen(path))) {
-		write_log("requested path %s\n", file_path);
+	    if (file_path && !strncmp(request, "GET ", 4)) {
+//		write_log("requested path %s\n", file_path);
 		int len;
-		const char *mime;
 		const char *file;
-		char *tmp = file_path + strlen(path) + 1;
-		if (*tmp == '/' || *tmp == 0) {
-		    tmp = "index.html";
+		const char *mime;
+		char *tmp = file_path;
+		if (!strcmp(tmp, "/")) {
+		    tmp = "/index.html";
 		}
 		if ((file = pseudofs_get_file(tmp, &len, &mime))) {
-		    write_log("found file %s len %d\n", file_path + strlen(path), len);
+		    write_log("found file %s len %d\n", tmp, len);
 		    snprintf(request, sizeof(request), "HTTP/1.1 200 OK\r\nContent-type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", mime, len);
 		    if (tcp_write(projector->channel, request, strlen(request)) == strlen(request)) {
 			if (tcp_write(projector->channel, (char *)file, len) != len) {
@@ -882,6 +882,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    }
 
 	    free(file_path);
+	    tcp_close(projector->channel);
 	    write_log("%s: http ws method error!\n", __func__);
 	    status = STATUS_CONNECTION_REJECTED;
 	    *is_started = 0;

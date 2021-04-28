@@ -1,0 +1,44 @@
+body {
+  margin: 0px;
+}
+
+.connect_form {
+  width: 100%;
+  display: inline-block;
+}
+
+.connect_form label {
+  display: inline-block;
+  font-weight: bold;
+  float: left;
+  clear: left;
+  width: 100px;
+  text-align: right;
+  padding: 5px 0px 5px 0px;
+  margin: 8px 0px;
+}
+
+.connect_form input {
+  display: inline-block;
+  float: left;
+  border: 1px solid #ccc;
+  padding: 5px 5px;
+  margin: 8px 5px;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.connect_form div {
+  padding-top: 3px;
+  padding-bottom: 2px;
+}
+
+;.connect_form div#submit {
+;  display: inline-block;
+;  text-align: center;
+;  width: 100%;
+;}
+
+span.err {
+  color: red;
+}

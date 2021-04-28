@@ -1,0 +1,46 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="style.css" />
+<script src="lz4dec.js"></script>
+<script src="lilitun-remote-client.js"></script>
+<script>
+window.onload = function() {
+    document.getElementById("canvas").style.display="none";
+    console.log(location.protocol);
+    document.getElementById("url").value = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + "/projector-ws" ;
+}
+
+function onerror(err, msg) {
+    console.log("Error " + msg + "(" + err + ")");
+
+    document.getElementById("error").innerHTML = msg;
+    document.getElementById("canvas").style.display="none";
+    document.getElementById("connect_form").style.display="block";
+}
+
+function connect() {
+    let url = document.getElementById("url").value;
+    let password = document.getElementById("password").value;
+    document.getElementById("connect_form").style.display="none";
+    document.getElementById("canvas").style.display="block";
+    start_client(url, password, onerror);
+
+    return false;
+}
+
+</script>
+</head>
+<body>
+<div id="connect_form" class="connect_form">
+    <form onsubmit="return connect();">
+	<label for="url">Remote</label>
+	<input id="url" type="text">
+	<label for="password">Password</label>
+	<input id="password" type="password">
+	<input type="submit">
+    </form>
+    <span class="err" id="error"></span>
+</div>
+<canvas id="canvas" oncontextmenu="return false;"></canvas>
+</body>
+</html>
