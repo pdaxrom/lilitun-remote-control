@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	return -1;
     }
 
-    if (!tcp_connection_upgrade(client, SIMPLE_CONNECTION_METHOD_WS, "/")) {
+    if (!tcp_connection_upgrade(client, SIMPLE_CONNECTION_METHOD_WS, "/", NULL, 0)) {
 	fprintf(stderr, "tcp_connection_upgrade()\n");
 	return -1;
     }

@@ -521,34 +521,33 @@ static char *header_get_path(char *header, char *str, int n)
     return NULL;
 }
 
-static int http_ws_method_server(tcp_channel *channel)
+static int http_ws_method_server(tcp_channel *channel, char *request, size_t len)
 {
     char req[1024];
     char field[256];
     unsigned char sha1buf[SHA_DIGEST_LENGTH];
+
+    if (request) {
+	*request = 0;
+    }
 
     if (get_http_header(channel, req, sizeof(req)) <= 0) {
 	fprintf(stderr, "%s: get_http_header()\n", __func__);
 	return 0;
     }
 
+    if (request && len) {
+	strncpy(request, req, len);
+    }
+
     //fprintf(stderr, "method ws get [%s]\n", req);
-
-    if (!header_get_path(req, field, sizeof(field))) {
-	return 0;
-    }
-
-    if (strcmp(field, channel->path)) {
-	fprintf(stderr, "wrong path [%s]\n", field);
-	return 0;
-    }
 
     if (!header_get_field(req, "Upgrade", field, sizeof(field))) {
 	return 0;
     }
 
     if (strcasecmp(field, "websocket")) {
-	fprintf(stderr, "wrong Upgrade [%s]\n", field);
+//	fprintf(stderr, "wrong Upgrade [%s]\n", field);
 	return 0;
     }
 
@@ -558,6 +557,15 @@ static int http_ws_method_server(tcp_channel *channel)
 
     if (!strcasestr(field, "Upgrade")) {
 	fprintf(stderr, "wrong Connection [%s]\n", field);
+	return 0;
+    }
+
+    if (!header_get_path(req, field, sizeof(field))) {
+	return 0;
+    }
+
+    if (strcmp(field, channel->path)) {
+	fprintf(stderr, "wrong path [%s]\n", field);
 	return 0;
     }
 
@@ -581,6 +589,9 @@ static int http_ws_method_server(tcp_channel *channel)
     //fprintf(stderr, "Send req [%s]\n", req);
 
     if (tcp_write_internal(channel, req, strlen(req)) != strlen(req)) {
+	if (request) {
+	    *request = 0;
+	}
 	fprintf(stderr, "%s: tcp_write()\n", __func__);
 	return 0;
     }
@@ -631,7 +642,7 @@ static int http_ws_method_client(tcp_channel *channel)
     return 1;
 }
 
-int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *path)
+int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *path, char *request, size_t len)
 {
     if (connection_method == SIMPLE_CONNECTION_METHOD_WS) {
 	ws_t *ws = malloc(sizeof(ws_t));
@@ -645,7 +656,7 @@ int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *pa
 		return 1;
 	    }
 	} else if ((u->primary_mode == TCP_SSL_SERVER) || (u->primary_mode == TCP_SERVER)) {
-	    if (http_ws_method_server(u)) {
+	    if (http_ws_method_server(u, request, len)) {
 		u->connection_method = connection_method;
 		u->ws = ws;
 		return 1;

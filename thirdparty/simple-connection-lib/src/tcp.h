@@ -72,7 +72,7 @@ extern "C" {
 
 tcp_channel *tcp_open(int mode, const char *addr, int port, char *sslkeyfile, char *sslcertfile);
 tcp_channel *tcp_accept(tcp_channel *u);
-int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *path);
+int tcp_connection_upgrade(tcp_channel *u, int connection_method, const char *path, char *request, size_t len);
 int tcp_read(tcp_channel *u, char *buf, size_t len);
 int tcp_write(tcp_channel *u, char *buf, size_t len);
 int tcp_close(tcp_channel *u);
