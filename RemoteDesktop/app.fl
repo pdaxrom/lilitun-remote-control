@@ -56,7 +56,7 @@ decl {extern const char *server_privkey;} {private global
 decl {extern const char *server_cert;} {private global
 }
 
-decl {extern const char *server_session_id;} {selected private global
+decl {extern const char *server_session_id;} {private global
 }
 
 decl {int user_port = -1;} {private local
@@ -167,6 +167,8 @@ Function {projector_thread(void *arg)} {open private return_type {void *}
 } {
   code {struct projector_t *projector = (struct projector_t *)arg;
 
+pthread_detach(pthread_self());
+
 while (is_started) {
 	int status = projector_connect(projector, server_url ? server_url : json_controlServerUrl, server_url ? NULL : json_appServerUrl, server_privkey, server_cert, server_url ? server_session_id : json_sessionId, &is_started);
 
@@ -189,7 +191,8 @@ share_button->redraw();
 Fl::unlock();
 Fl::flush();
 
-return NULL;} {}
+return NULL;} {selected
+  }
 }
 
 Function {projector_start()} {open return_type int

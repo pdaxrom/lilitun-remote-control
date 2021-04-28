@@ -18,6 +18,7 @@
 #include "jpegenc.h"
 #include "getrandom.h"
 #include "base64.h"
+#include "list.h"
 #include "projector.h"
 #include "../thirdparty/lz4/lz4.h"
 #include "pseudofs.h"
@@ -621,12 +622,43 @@ static int recv_pointer(struct projector_t *projector)
     return 1;
 }
 
+static void cb_error(char *str)
+{
+    write_log("Projector error %s\n", str);
+}
+
+static void cb_user_password(char *str)
+{
+    write_log("User password %s\n", str);
+}
+
+static void cb_user_connection(int port, int ipv6port)
+{
+    write_log("User port ipv4 %d, port ipv6 %d\n", port, ipv6port);
+}
+
+static int cb_ssl_verify(int err, char *cert)
+{
+    write_log("Accept certificate\n");
+    return 1;
+}
+
 struct projector_t *projector_init()
 {
     signal(SIGPIPE, SIG_IGN);
 
     write_log("Initializing screen device ...\n");
-    return init_fb();
+
+    struct projector_t *projector = init_fb();
+
+    if (projector) {
+	projector->cb_error = cb_error;
+	projector->cb_user_password = cb_user_password;
+	projector->cb_user_connection = cb_user_connection;
+	projector->cb_ssl_verify = cb_ssl_verify;
+    }
+
+    return projector;
 }
 
 static int check_ssl_certificate(struct projector_t *projector)
@@ -791,6 +823,7 @@ typedef struct {
     const char *path;
     const char *session_id;
     int *status;
+    pthread_t tid;
 } projector_thread_vars;
 
 static void *projector_thread(void *arg)
@@ -907,6 +940,10 @@ static void *http_thread(void *arg)
 {
     projector_thread_vars *vars = (projector_thread_vars *) arg;
 
+    pthread_mutex_lock(&vars->projector->threads_list_mutex);
+    list_add_data(&vars->projector->threads_list, vars);
+    pthread_mutex_unlock(&vars->projector->threads_list_mutex);
+
     pthread_detach(pthread_self());
 
     char request[1024];
@@ -960,6 +997,10 @@ static void *http_thread(void *arg)
 	projector_thread(vars);
 	*vars->connected = 0;
     }
+
+    pthread_mutex_lock(&vars->projector->threads_list_mutex);
+    list_remove_data(&vars->projector->threads_list, vars);
+    pthread_mutex_unlock(&vars->projector->threads_list_mutex);
 
     free(vars);
 
@@ -1031,6 +1072,9 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 
     if ((connect_type == TCP_SERVER || connect_type == TCP_SSL_SERVER) && server) {
 	int connected = 0;
+	projector->threads_list = NULL;
+	pthread_mutex_init(&projector->threads_list_mutex, NULL);
+
 	do {
 	    tcp_channel *client = NULL;
 	    while (*is_started) {
@@ -1078,15 +1122,30 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    vars->session_id = session_id;
 	    vars->status = &status;
 
-	    pthread_t tid;
-	    if (pthread_create(&tid, NULL, &http_thread, (void *)vars) != 0) {
+	    if (pthread_create(&vars->tid, NULL, &http_thread, (void *)vars) != 0) {
 		write_log("Can't create http thread!\n");
 		*is_started = 0;
 		tcp_close(client);
+		break;
 	    }
 	} while (*is_started);
 
+	int active = 1;
+	while(active)  {
+	    pthread_mutex_lock(&projector->threads_list_mutex);
+	    if (!projector->threads_list) {
+		active = 0;
+	    }
+	    pthread_mutex_unlock(&projector->threads_list_mutex);
+	    if (active) {
+		write_log("Waiting all threads finished\n");
+		sleep(1);
+	    }
+	}
+
 	tcp_close(server);
+
+	pthread_mutex_destroy(&projector->threads_list_mutex);
     } else if (projector->channel) {
 	if ((connect_method == CONNECTION_METHOD_WS) &&
 	    (!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path, NULL, 0))) {

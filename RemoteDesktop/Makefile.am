@@ -5,7 +5,7 @@ LIBS = $(PROJECTOR_LIBS) $(GRABBER_LIBS)
 bin_PROGRAMS = lilitun-remote-control
 
 if TARGET_LINUX
-lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c xcbgrabber.c base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c
+lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c list.c xcbgrabber.c base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c
 
 LINUXDEPLOY = linuxdeploy-devbuild-$(SYSTEM_ARCH).AppImage
 

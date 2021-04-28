@@ -39,6 +39,8 @@ struct projector_t {
     int user_port;
     int user_ipv6port;
     char *user_password;
+    struct list_item *threads_list;
+    pthread_mutex_t threads_list_mutex;
     void (*cb_error)(char *str);
     void (*cb_user_password)(char *str);
     void (*cb_user_connection)(int port, int ipv6port);

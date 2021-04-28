@@ -105,6 +105,8 @@ static int set_ssl_verify(int err, char *cert) {
 static void * projector_thread(void *arg) {
   struct projector_t *projector = (struct projector_t *)arg;
   
+  pthread_detach(pthread_self());
+  
   while (is_started) {
   	int status = projector_connect(projector, server_url ? server_url : json_controlServerUrl, server_url ? NULL : json_appServerUrl, server_privkey, server_cert, server_url ? server_session_id : json_sessionId, &is_started);
   
