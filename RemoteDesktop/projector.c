@@ -20,6 +20,7 @@
 #include "base64.h"
 #include "projector.h"
 #include "../thirdparty/lz4/lz4.h"
+#include "pseudofs.h"
 
 /*****************************************************************************/
 
@@ -854,11 +855,29 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    char *file_path = header_get_path(request);
 	    if (!strncmp(request, "GET ", 4) && !strncmp(path, file_path, strlen(path))) {
 		write_log("requested path %s\n", file_path);
-
-		free(file_path);
-		snprintf(request, sizeof(request), "HTTP/1.1 404 Not Found\r\n\r\n");
-		tcp_write(projector->channel, request, strlen(request));
+		int len;
+		const char *mime;
+		const char *file;
+		char *tmp = file_path + strlen(path) + 1;
+		if (*tmp == '/' || *tmp == 0) {
+		    tmp = "index.html";
+		}
+		if ((file = pseudofs_get_file(tmp, &len, &mime))) {
+		    write_log("found file %s len %d\n", file_path + strlen(path), len);
+		    snprintf(request, sizeof(request), "HTTP/1.1 200 OK\r\nContent-type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", mime, len);
+		    if (tcp_write(projector->channel, request, strlen(request)) == strlen(request)) {
+			if (tcp_write(projector->channel, (char *)file, len) != len) {
+			    write_log("Can't send http page body\n");
+			}
+		    } else {
+			    write_log("Can't send http page header\n");
+		    }
+		} else {
+		    snprintf(request, sizeof(request), "HTTP/1.1 404 Not Found\r\n\r\n");
+		    tcp_write(projector->channel, request, strlen(request));
+		}
 		tcp_close(projector->channel);
+		free(file_path);
 		continue;
 	    }
 
