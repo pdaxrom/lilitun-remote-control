@@ -896,6 +896,12 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	if (!*is_started) {
 	    break;
 	}
+    } else if ((connect_method == CONNECTION_METHOD_WS) &&
+		(!tcp_connection_upgrade(projector->channel, SIMPLE_CONNECTION_METHOD_WS, path, NULL, 0))) {
+	tcp_close(projector->channel);
+	write_log("%s: http ws method error!\n", __func__);
+	status = STATUS_CONNECTION_REJECTED;
+	*is_started = 0;
     }
 
     if (projector->channel && check_ssl_certificate(projector)) {
