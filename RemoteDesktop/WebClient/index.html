@@ -13,7 +13,9 @@ window.onload = function() {
     console.log(location.protocol);
     document.getElementById("url").value = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + local_wspath ;
     if (local_connected) {
-	document.getElementById("connect_form").style.display="none";
+	document.getElementById("url").disabled = true;
+	document.getElementById("password").disabled = true;
+	document.getElementById("connect_button").disabled = true;
 	document.getElementById("error").innerHTML = "Connection in Progress";
     }
 }
@@ -43,11 +45,15 @@ function connect() {
   <img src="lilitun-remote-desktop-color.png">
   <div id="connect_form" class="connect_form">
     <form onsubmit="return connect();">
+	<div>
 	<label for="url">Remote</label>
 	<input id="url" type="text">
+	</div>
+	<div>
 	<label for="password">Password</label>
 	<input id="password" type="password">
-	<input type="submit">
+	</div>
+	<button id="connect_button" type="submit">Connect</button>
     </form>
   </div>
   <div class="message"><span class="err" id="error"></span></div>
