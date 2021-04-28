@@ -12,6 +12,10 @@ window.onload = function() {
     document.getElementById("canvas").style.display="none";
     console.log(location.protocol);
     document.getElementById("url").value = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + local_wspath ;
+    if (local_connected) {
+	document.getElementById("connect_form").style.display="none";
+	document.getElementById("error").innerHTML = "Connection in Progress";
+    }
 }
 
 function onerror(err, msg) {
