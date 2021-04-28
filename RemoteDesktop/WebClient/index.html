@@ -5,12 +5,13 @@
 <link rel="shortcut icon" href="/lilitun-remote-desktop-color.png" type="image/png">
 <link rel="stylesheet" type="text/css" href="style.css" />
 <script src="lz4dec.js"></script>
+<script src="local.js"></script>
 <script src="lilitun-remote-client.js"></script>
 <script>
 window.onload = function() {
     document.getElementById("canvas").style.display="none";
     console.log(location.protocol);
-    document.getElementById("url").value = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + "/projector-ws" ;
+    document.getElementById("url").value = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + local_wspath ;
 }
 
 function onerror(err, msg) {
