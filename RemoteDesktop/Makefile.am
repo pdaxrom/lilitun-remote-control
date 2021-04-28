@@ -32,7 +32,7 @@ install-exec-hook: lilitun-remote-control-$(VERSION)-$(SYSTEM_ARCH).AppImage
 endif
 
 if TARGET_WINDOWS
-lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c wingrabber.cxx base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c resources.rc
+lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c list.c wingrabber.cxx base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c resources.rc
 endif
 
 if TARGET_MACOS
@@ -42,7 +42,7 @@ resources_DATA = osx/Projector.icns
 contentsdir = $(prefix)/LiliTun-remote-control.app/Contents
 contents_DATA = osx/PkgInfo osx/Info.plist
 
-lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c macgrabber.c base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c
+lilitun_remote_control_SOURCES = app.cxx jpegenc.c main.cxx projector.c list.c macgrabber.c base64.c getrandom.c ../thirdparty/lz4/lz4.c pseudofs.c
 endif
 
 .rc.o:

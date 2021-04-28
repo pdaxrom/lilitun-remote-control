@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <signal.h>
+#include <pthread.h>
 
 #ifdef _WIN32
 #define SIGHUP	1
