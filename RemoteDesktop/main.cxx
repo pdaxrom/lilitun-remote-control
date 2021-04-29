@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
 	write_log("Start app!\n");
 
-	if (!json_requestType || server_url) {
+	if (!json_requestType && !server_url) {
 	    fprintf(stderr, "No parameters, exit...\n");
 	    return 0;
 	}
