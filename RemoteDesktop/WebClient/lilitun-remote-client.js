@@ -55,22 +55,16 @@ function strlen(string) {
     return string.length;
 }
 
-function array_append(buffer1, buffer2) {
-    let tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
-    tmp.set(new Uint8Array(buffer1), 0);
-    tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
-    return tmp;
-};
-
 function send_string(socket, string) {
     socket.send(htonl(strlen(string)));
     socket.send(new Blob([string]));
 }
 
 function send_password(socket, password) {
-    let data = array_append(htonl(Request.REQ_AUTHORIZATION), htonl(strlen(password)));
-    state = State.ReadAck;
-    socket.send(data);
+    let tmp = new Uint8Array(8);
+    tmp.set(htonl(Request.REQ_AUTHORIZATION), 0);
+    tmp.set(htonl(strlen(password)), 4);
+    socket.send(tmp);
     socket.send(new Blob([password]));
 }
 
@@ -95,7 +89,68 @@ function send_mouse_event(socket, event) {
     socket.send(tmp);
 }
 
+
+function send_keyboard_event(socket, event) {
+    let tmp = new Uint8Array(12);
+    tmp.set(htonl(Request.REQ_KEYBOARD), 0);
+    tmp.set(htonl(event.down), 4);
+    tmp.set(htonl(event.key), 8);
+    socket.send(tmp);
+}
+
+function keyboard_event(down, key) {
+    this.down = down;
+    this.key = key;
+}
+
+
+
 function start_client(remote_url, password, onerror) {
+    function mouse_move(e) {
+	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+    }
+
+    function mouse_down(e) {
+	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	mouse_buttons |= (1 << event.button);
+	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+    }
+
+    function mouse_up(e) {
+	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
+	mouse_y = e.clientY * (ScreenInfo.height / win_h);
+	mouse_buttons &= ~(1 << event.button);
+	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+    }
+
+    function keyboard_down(e) {
+	console.log("D Key " + e.code + " [" + e.key + "]");
+    }
+
+    function keyboard_up(e) {
+	console.log("U Key " + e.code + " [" + e.key + "]");
+    }
+
+    function start_input_devices() {
+	canvas.addEventListener('mousemove', mouse_move);
+	canvas.addEventListener('mousedown', mouse_down);
+	canvas.addEventListener('mouseup', mouse_up);
+	window.addEventListener('keydown', keyboard_down);
+	window.addEventListener('keyup', keyboard_up);
+	input_devices_started = true;
+    }
+
+    function stop_input_devices() {
+	canvas.removeEventListener('mousemove', mouse_move);
+	canvas.removeEventListener('mousedown', mouse_down);
+	canvas.removeEventListener('mouseup', mouse_up);
+	window.removeEventListener('keydown', keyboard_down);
+	window.removeEventListener('keyup', keyboard_up);
+    }
+
     let ScreenInfo = {
 	width : 0,
 	height : 0,
@@ -153,26 +208,6 @@ function start_client(remote_url, password, onerror) {
 	state = State.ReadUint32;
 	request = Request.REQ_SIGNATURE;
 	send_string(socket, CLIENT_ID);
-
-	canvas.addEventListener('mousemove', e => {
-	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
-	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
-	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
-	});
-
-	canvas.addEventListener('mousedown', e => {
-	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
-	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
-	    mouse_buttons |= (1 << event.button);
-	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
-	});
-
-	canvas.addEventListener('mouseup', e => {
-	    mouse_x = e.clientX * (ScreenInfo.width  / win_w);
-	    mouse_y = e.clientY * (ScreenInfo.height / win_h);
-	    mouse_buttons &= ~(1 << event.button);
-	    mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
-	});
     };
 
     socket.onmessage = function(event) {
@@ -246,7 +281,7 @@ function start_client(remote_url, password, onerror) {
 		    RemoteHost = array_to_string(buffer);
 		    console.log("Remote host " + RemoteHost);
 		    document.title = RemoteHost;
-
+		    start_input_devices();
 		    request = Request.REQ_SCREEN_UPDATE;
 		    state = State.ReadAck;
 		    send_request(socket, request);
@@ -347,6 +382,7 @@ function start_client(remote_url, password, onerror) {
     };
 
     socket.onclose = function(event) {
+	stop_input_devices();
 	if (event.wasClean) {
 	    console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
 	    onerror(0, "Disconnected");
@@ -362,7 +398,3 @@ function start_client(remote_url, password, onerror) {
 	console.log(`[error] ${error.message}`);
     };
 }
-
-//window.onload = function() {
-//    start_client();
-//}
