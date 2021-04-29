@@ -33,6 +33,96 @@ const State = {
     ReadRegionData : 4
 };
 
+const Keys = {
+    'Escape'	: 0xff1b,
+    'F1'	: 0xffbe,
+    'F2'	: 0xffbf,
+    'F3'	: 0xffc0,
+    'F4'	: 0xffc1,
+    'F5'	: 0xffc2,
+    'F6'	: 0xffc3,
+    'F7'	: 0xffc4,
+    'F8'	: 0xffc5,
+    'F9'	: 0xffc6,
+    'F10'	: 0xffc7,
+    'F11'	: 0xffc8,
+    'F12'	: 0xffc9,
+    'PrintScreen' : 0xff61,
+    'Delete'	: 0xffff,
+    'Backquote' : 0x060,
+    'Digit1'	: 0x031,
+    'Digit2'	: 0x032,
+    'Digit3'	: 0x033,
+    'Digit4'	: 0x034,
+    'Digit5'	: 0x035,
+    'Digit6'	: 0x036,
+    'Digit7'	: 0x037,
+    'Digit8'	: 0x038,
+    'Digit9'	: 0x039,
+    'Digit0'	: 0x030,
+    'Minus'	: 0x02d,
+    'Equal'	: 0x03d,
+    'Backspace' : 0xff08,
+    'Tab'	: 0xff09,
+    'KeyQ'	: 0x071,
+    'KeyW'	: 0x077,
+    'KeyE'	: 0x065,
+    'KeyR'	: 0x072,
+    'KeyT'	: 0x074,
+    'KeyY'	: 0x079,
+    'KeyU'	: 0x075,
+    'KeyI'	: 0x069,
+    'KeyO'	: 0x06f,
+    'KeyP'	: 0x070,
+    'BracketLeft': 0x05b,
+    'BracketRight': 0x05d,
+    'CapsLock'	: 0xffe5,
+    'KeyA'	: 0x061,
+    'KeyS'	: 0x073,
+    'KeyD'	: 0x064,
+    'KeyF'	: 0x066,
+    'KeyG'	: 0x067,
+    'KeyH'	: 0x068,
+    'KeyJ'	: 0x06a,
+    'KeyK'	: 0x06b,
+    'KeyL'	: 0x06c,
+    'Semicolon'	: 0x03b,
+    'Quote'	: 0x027,
+    'Backslash'	: 0x05c,
+    'Enter'	: 0xff0d,
+    'ShiftLeft' : 0xffe1,
+    'IntlBackslash': 0x03c,
+    'KeyZ'	: 0x07a,
+    'KeyX'	: 0x078,
+    'KeyC'	: 0x063,
+    'KeyV'	: 0x076,
+    'KeyB'	: 0x062,
+    'KeyN'	: 0x06e,
+    'KeyM'	: 0x06d,
+    'Comma'	: 0x02c,
+    'Period'	: 0x02e,
+    'Slash'	: 0x02f,
+    'ShiftRight': 0xffe2,
+    'ControlLeft': 0xffe3,
+    'MetaLeft'	: 0xffe7,
+    'AltLeft'	: 0xffe9,
+    'Space'	: 0x020,
+    'AltRight'	: 0xffea,
+    'ControlRight': 0xffe4,
+    'ArrowLeft' : 0xff51,
+    'ArrowUp'	: 0xff52,
+    'ArrowRight': 0xff53,
+    'ArrowDown'	: 0xff54,
+
+    'Home'	: 0xff50,
+    'End'	: 0xff57,
+    'PageUp'	: 0xff55,
+    'PageDown'	: 0xff56,
+
+    'ScrollLock': 0xff14,
+    'Insert'	: 0xff63
+};
+
 function htonl(n) {
     // Mask off 8 bytes at a time then shift them into place
     return new Uint8Array([
@@ -73,6 +163,7 @@ function send_request(socket, request) {
 }
 
 function mouse_event(buttons, x, y, wheel) {
+    this.type = Request.REQ_POINTER;
     this.buttons = buttons;
     this.x = x;
     this.y = y;
@@ -89,6 +180,11 @@ function send_mouse_event(socket, event) {
     socket.send(tmp);
 }
 
+function keyboard_event(down, key) {
+    this.type = Request.REQ_KEYBOARD;
+    this.down = down;
+    this.key = key;
+}
 
 function send_keyboard_event(socket, event) {
     let tmp = new Uint8Array(12);
@@ -98,40 +194,56 @@ function send_keyboard_event(socket, event) {
     socket.send(tmp);
 }
 
-function keyboard_event(down, key) {
-    this.down = down;
-    this.key = key;
+function send_input_event(socket, event) {
+    if (event.type == Request.REQ_POINTER) {
+	send_mouse_event(socket, event);
+    } else {
+	send_keyboard_event(socket, event);
+    }
 }
 
-
-
 function start_client(remote_url, password, onerror) {
+    function convert_keys(k) {
+	
+    }
+
     function mouse_move(e) {
 	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
 	mouse_y = e.clientY * (ScreenInfo.height / win_h);
-	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+	input_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
     }
 
     function mouse_down(e) {
 	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
 	mouse_y = e.clientY * (ScreenInfo.height / win_h);
 	mouse_buttons |= (1 << event.button);
-	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+	input_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
     }
 
     function mouse_up(e) {
 	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
 	mouse_y = e.clientY * (ScreenInfo.height / win_h);
 	mouse_buttons &= ~(1 << event.button);
-	mouse_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+	input_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
     }
 
     function keyboard_down(e) {
-	console.log("D Key " + e.code + " [" + e.key + "]");
+//	console.log("D Key " + e.code + " [" + e.key + "]");
+//	console.log("---" + Keys[e.code] + "---");
+	let key = Keys[e.code];
+	if (key) {
+//	    console.log("GOOD!");
+	    input_events.push(new keyboard_event(1, key));
+	}
     }
 
     function keyboard_up(e) {
-	console.log("U Key " + e.code + " [" + e.key + "]");
+//	console.log("U Key " + e.code + " [" + e.key + "]");
+	let key = Keys[e.code];
+	if (key) {
+//	    console.log("GOOD!");
+	    input_events.push(new keyboard_event(0, key));
+	}
     }
 
     function start_input_devices() {
@@ -171,8 +283,7 @@ function start_client(remote_url, password, onerror) {
 
     let lz4 = new LZ4();
 
-    let mouse_events = [];
-    let keyboard_events = [];
+    let input_events = [];
 
     let mouse_buttons = 0;
     let mouse_x = 0;
@@ -196,8 +307,6 @@ function start_client(remote_url, password, onerror) {
     canvas.style.width = `${win_w}px`;
     canvas.style.height = `${win_h}px`;
 
-//    let socket = new WebSocket("wss://localhost:4443/projector-ws", ['binary']);
-//    let socket = new WebSocket(location.protocol + location.host + "/projector-ws", ['binary']);
     let socket = new WebSocket(remote_url, ['binary']);
 
     console.log(socket.binaryType);
@@ -295,8 +404,8 @@ function start_client(remote_url, password, onerror) {
 //		    console.log("Regions " + regions);
 		    state = State.ReadRegionHeader;
 		    if (regions == 0) {
-			while (mouse_events.length > 0) {
-			    send_mouse_event(socket, mouse_events.shift());
+			while (input_events.length > 0) {
+			    send_input_event(socket, input_events.shift());
 			}
 			request = Request.REQ_SCREEN_UPDATE;
 			state = State.ReadAck;
@@ -320,8 +429,8 @@ function start_client(remote_url, password, onerror) {
 		    if (RegionHeader.size > 0) {
 			state = State.ReadRegionData;
 		    } else if (regions == 0) {
-			while (mouse_events.length > 0) {
-			    send_mouse_event(socket, mouse_events.shift());
+			while (input_events.length > 0) {
+			    send_input_event(socket, input_events.shift());
 			}
 //			console.log("no regions");
 			request = Request.REQ_SCREEN_UPDATE;
@@ -367,8 +476,8 @@ function start_client(remote_url, password, onerror) {
 		    if (regions > 0) {
 			state = State.ReadRegionHeader;
 		    } else {
-			while (mouse_events.length > 0) {
-			    send_mouse_event(socket, mouse_events.shift());
+			while (input_events.length > 0) {
+			    send_input_event(socket, input_events.shift());
 			}
 //			console.log("no regions");
 			request = Request.REQ_SCREEN_UPDATE;
