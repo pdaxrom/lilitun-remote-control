@@ -228,6 +228,7 @@ function start_client(remote_url, password, onerror) {
     }
 
     function keyboard_down(e) {
+	e.preventDefault();
 //	console.log("D Key " + e.code + " [" + e.key + "]");
 //	console.log("---" + Keys[e.code] + "---");
 	let key = Keys[e.code];
@@ -238,6 +239,7 @@ function start_client(remote_url, password, onerror) {
     }
 
     function keyboard_up(e) {
+	e.preventDefault();
 //	console.log("U Key " + e.code + " [" + e.key + "]");
 	let key = Keys[e.code];
 	if (key) {
