@@ -106,6 +106,8 @@ int GrabberGetScreen(struct XGrabber *cfg, int x, int y, int w, int h, void (*cb
 #define MOUSE_LB 1
 #define MOUSE_MB 2
 #define MOUSE_RB 4
+#define MOUSE_WD 8
+#define MOUSE_WU 16
 
 void GrabberMouseEvent(struct XGrabber *cfg, uint32_t buttons, int x, int y)
 {
@@ -114,7 +116,9 @@ void GrabberMouseEvent(struct XGrabber *cfg, uint32_t buttons, int x, int y)
     double fx = x * (65535.0f / (double)cfg->width);
     double fy = y * (65535.0f / (double)cfg->height);
 
-    input.type=INPUT_MOUSE;
+    input.type = INPUT_MOUSE;
+    input.mi.dwExtraInfo = GetMessageExtraInfo();
+    input.mi.time = 0;
     input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
     input.mi.dx = fx;
     input.mi.dy = fy;
@@ -144,6 +148,16 @@ void GrabberMouseEvent(struct XGrabber *cfg, uint32_t buttons, int x, int y)
 	} else {
 	    input.mi.dwFlags |= MOUSEEVENTF_MIDDLEUP;
 	}
+    }
+
+    if (buttons & MOUSE_WD) {
+	input.mi.dwFlags |= MOUSEEVENTF_WHEEL;
+	input.mi.mouseData = WHEEL_DELTA;
+    }
+
+    if (buttons & MOUSE_WU) {
+	input.mi.dwFlags |= MOUSEEVENTF_WHEEL;
+	input.mi.mouseData = -WHEEL_DELTA;
     }
 
     SendInput(1, &input, sizeof(INPUT));
