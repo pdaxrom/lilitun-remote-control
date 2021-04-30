@@ -103,7 +103,7 @@ build_broken_autotools() {
 }
 
 build_openssl() {
-    local SRC=openssl-1.1.1i
+    local SRC=openssl-1.1.1k
     local C=$1
     shift
     pushd ${BUILD}/thirdparty
