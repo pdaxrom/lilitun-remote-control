@@ -21,6 +21,7 @@ typedef struct {
 
     xcb_key_symbols_t *syms;
     uint32_t buttons;
+    uint32_t x, y;
 } XGrabber;
 
 static int CheckXcbShm(XGrabber * cfg)
@@ -113,6 +114,8 @@ XGrabber *GrabberInit(int *w, int *h, int *d)
     XGrabber *cfg = malloc(sizeof(XGrabber));
 
     cfg->buttons = 0;
+    cfg->x = 0;
+    cfg->y = 0;
 
     cfg->connection = xcb_connect(NULL, &screenNum);
 
@@ -178,10 +181,17 @@ static void setButtons(XGrabber * cfg, uint32_t buttons, uint32_t mask, int butt
 void GrabberMouseEvent(XGrabber * cfg, uint32_t buttons, int x, int y)
 {
 //    xcb_warp_pointer(cfg->connection, XCB_NONE, cfg->screen->root, 0, 0, 0, 0, x, y);
-    xcb_test_fake_input(cfg->connection, XCB_MOTION_NOTIFY, 0, XCB_CURRENT_TIME, cfg->screen->root, x, y, 0);
-    setButtons(cfg, buttons, 1, 1);
-    setButtons(cfg, buttons, 2, 2);
-    setButtons(cfg, buttons, 4, 3);
+    if (x != cfg->x || y != cfg->y) {
+	xcb_test_fake_input(cfg->connection, XCB_MOTION_NOTIFY, 0, XCB_CURRENT_TIME, cfg->screen->root, x, y, 0);
+	cfg->x = x;
+	cfg->y = y;
+    }
+
+    setButtons(cfg, buttons, 1,  1);
+    setButtons(cfg, buttons, 2,  2);
+    setButtons(cfg, buttons, 4,  3);
+    setButtons(cfg, buttons, 8,  4);
+    setButtons(cfg, buttons, 16, 5);
 }
 
 void GrabberKeyboardEvent(XGrabber * cfg, int down, uint32_t key)

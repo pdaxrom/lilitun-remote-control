@@ -230,6 +230,11 @@ function start_client(remote_url, password, onerror) {
 	input_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
     }
 
+    function mouse_onwheel(e) {
+	input_events.push(new mouse_event(mouse_buttons | ((e.deltaY < 0) ? (1 << 3) : (e.deltaY > 0) ? (1 << 4) : 0), mouse_x, mouse_y, mouse_wheel));
+	input_events.push(new mouse_event(mouse_buttons, mouse_x, mouse_y, mouse_wheel));
+    }
+
     function keyboard_down(e) {
 	e.preventDefault();
 	let key = Keys[e.code];
@@ -250,6 +255,7 @@ function start_client(remote_url, password, onerror) {
 	canvas.addEventListener('mousemove', mouse_move);
 	canvas.addEventListener('mousedown', mouse_down);
 	canvas.addEventListener('mouseup', mouse_up);
+	canvas.addEventListener('wheel', mouse_onwheel);
 	window.addEventListener('keydown', keyboard_down);
 	window.addEventListener('keyup', keyboard_up);
 	input_devices_started = true;
@@ -259,6 +265,7 @@ function start_client(remote_url, password, onerror) {
 	canvas.removeEventListener('mousemove', mouse_move);
 	canvas.removeEventListener('mousedown', mouse_down);
 	canvas.removeEventListener('mouseup', mouse_up);
+	canvas.removeEventListener('wheel', mouse_onwheel);
 	window.removeEventListener('keydown', keyboard_down);
 	window.removeEventListener('keyup', keyboard_up);
     }
