@@ -124,7 +124,6 @@ const Keys = {
 };
 
 function htonl(n) {
-    // Mask off 8 bytes at a time then shift them into place
     return new Uint8Array([
         (n & 0xFF000000) >>> 24,
         (n & 0x00FF0000) >>> 16,
@@ -137,17 +136,25 @@ function ntohl(n) {
     return (n[0] << 24) | (n[1] << 16) | (n[2] << 8) | n[3];
 }
 
-function array_to_string(array) {
-    return String.fromCharCode.apply(String, new Uint8Array(array));
-}
-
 function strlen(string) {
     return string.length;
 }
 
+function string_to_bytes(str) {
+  let bytes = new Uint8Array(str.length);
+  for (let i = 0, strLen = str.length; i < strLen; i++) {
+    bytes[i] = str.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytes_to_string(buf) {
+  return String.fromCharCode.apply(null, new Uint8Array(buf));
+}
+
 function send_string(socket, string) {
     socket.send(htonl(strlen(string)));
-    socket.send(new Blob([string]));
+    socket.send(string_to_bytes(string));
 }
 
 function send_password(socket, password) {
@@ -155,7 +162,7 @@ function send_password(socket, password) {
     tmp.set(htonl(Request.REQ_AUTHORIZATION), 0);
     tmp.set(htonl(strlen(password)), 4);
     socket.send(tmp);
-    socket.send(new Blob([password]));
+    socket.send(string_to_bytes(password));
 }
 
 function send_request(socket, request) {
@@ -203,10 +210,6 @@ function send_input_event(socket, event) {
 }
 
 function start_client(remote_url, password, onerror) {
-    function convert_keys(k) {
-	
-    }
-
     function mouse_move(e) {
 	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
 	mouse_y = e.clientY * (ScreenInfo.height / win_h);
@@ -229,21 +232,16 @@ function start_client(remote_url, password, onerror) {
 
     function keyboard_down(e) {
 	e.preventDefault();
-//	console.log("D Key " + e.code + " [" + e.key + "]");
-//	console.log("---" + Keys[e.code] + "---");
 	let key = Keys[e.code];
 	if (key) {
-//	    console.log("GOOD!");
 	    input_events.push(new keyboard_event(1, key));
 	}
     }
 
     function keyboard_up(e) {
 	e.preventDefault();
-//	console.log("U Key " + e.code + " [" + e.key + "]");
 	let key = Keys[e.code];
 	if (key) {
-//	    console.log("GOOD!");
 	    input_events.push(new keyboard_event(0, key));
 	}
     }
@@ -311,6 +309,8 @@ function start_client(remote_url, password, onerror) {
 
     let socket = new WebSocket(remote_url, ['binary']);
 
+    socket.binaryType = 'arraybuffer';
+
     console.log(socket.binaryType);
 
     socket.onopen = function(e) {
@@ -322,174 +322,173 @@ function start_client(remote_url, password, onerror) {
     };
 
     socket.onmessage = function(event) {
-//  console.log(`[message] Data received from server: ${event.data}`);
+//	console.log(`[message] Data received from server: ${event.data}`);
+//	console.log('Buffer length ' + event.data.byteLength);
+	if (request == Request.REQ_SIGNATURE) {
+	    if (state == State.ReadUint32) {
+		data_len = ntohl(new Uint8Array(event.data));
+		console.log('Data len ' + data_len);
+		state = State.ReadData;
+	    } else if (state == State.ReadData) {
+		if (event.data.byteLength != data_len) {
+		    console.log("Wrong data length!");
+		} else {
+		    signature = bytes_to_string(event.data);
+		    console.log("Signature " + signature);
 
-	event.data.arrayBuffer().then(buffer => {
-//    console.log('Buffer length ' + buffer.byteLength);
-
-	    if (request == Request.REQ_SIGNATURE) {
-		if (state == State.ReadUint32) {
-		    data_len = ntohl(new Uint8Array(buffer));
-		    console.log('Data len ' + data_len);
-		    state = State.ReadData;
-		} else if (state == State.ReadData) {
-		    if (buffer.byteLength != data_len) {
-			console.log("Wrong data length!");
-		    } else {
-			signature = array_to_string(buffer);
-			console.log("Signature " + signature);
-
-			request = Request.REQ_AUTHORIZATION;
-			state = State.ReadAck;
-			send_password(socket, password);
-		    }
-		}
-	    } else if (request == Request.REQ_AUTHORIZATION) {
-		if (state == State.ReadAck) {
-		    status = ntohl(new Uint8Array(buffer));
-		    if (status != 0) {
-			console.log("Wrong password!");
-			onerror(1, "Bad password");
-		    }
-
-		    request = Request.REQ_SCREEN_INFO;
+		    request = Request.REQ_AUTHORIZATION;
 		    state = State.ReadAck;
-		    send_request(socket, request);
-		}
-	    } else if (request == Request.REQ_SCREEN_INFO) {
-		if (state == State.ReadAck) {
-		    tmp = new Uint8Array(buffer);
-		    reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
-		    ScreenInfo.width = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
-		    ScreenInfo.height = ntohl([tmp[8], tmp[9], tmp[10], tmp[11]]);
-		    ScreenInfo.depth = ntohl([tmp[12], tmp[13], tmp[14], tmp[15]]);
-		    ScreenInfo.pixelformat = ntohl([tmp[16], tmp[17], tmp[18], tmp[19]]);
-		    console.log("Reply " + reply);
-		    console.log("width = " + ScreenInfo.width);
-		    console.log("height = " + ScreenInfo.height);
-		    console.log("depth = " + ScreenInfo.depth);
-		    console.log("pixelformat = " + ScreenInfo.pixelformat);
-
-		    canvas.width = ScreenInfo.width;
-		    canvas.height = ScreenInfo.height;
-
-		    ctx = canvas.getContext('2d');
-		    ctx.mozImageSmoothingEnabled = false;
-		    ctx.imageSmoothingEnabled = false;
-
-		    request = Request.REQ_HOSTNAME;
-		    state = State.ReadAck;
-		    send_request(socket, request);
-		}
-	    } else if (request == Request.REQ_HOSTNAME) {
-		if (state == State.ReadAck) {
-		    tmp = new Uint8Array(buffer);
-		    reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
-		    console.log("Reply " + reply);
-		    data_len = ntohl(tmp[4], tmp[5], tmp[6], tmp[7]);
-		    state = State.ReadData;
-		} else if (state == State.ReadData) {
-		    RemoteHost = array_to_string(buffer);
-		    console.log("Remote host " + RemoteHost);
-		    document.title = RemoteHost;
-		    start_input_devices();
-		    request = Request.REQ_SCREEN_UPDATE;
-		    state = State.ReadAck;
-		    send_request(socket, request);
-		}
-	    } else if (request == Request.REQ_SCREEN_UPDATE) {
-		if (state == State.ReadAck) {
-		    tmp = new Uint8Array(buffer);
-		    reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
-//		    console.log("Reply " + reply);
-		    regions = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
-//		    console.log("Regions " + regions);
-		    state = State.ReadRegionHeader;
-		    if (regions == 0) {
-			while (input_events.length > 0) {
-			    send_input_event(socket, input_events.shift());
-			}
-			request = Request.REQ_SCREEN_UPDATE;
-			state = State.ReadAck;
-			setTimeout(() => send_request(socket, request), 50);
-		    }
-		} else if (state == State.ReadRegionHeader) {
-		    regions--;
-		    tmp = new Uint8Array(buffer);
-		    RegionHeader.x = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
-		    RegionHeader.y = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
-		    RegionHeader.width = ntohl([tmp[8], tmp[9], tmp[10], tmp[11]]);
-		    RegionHeader.height = ntohl([tmp[12], tmp[13], tmp[14], tmp[15]]);
-		    RegionHeader.depth = ntohl([tmp[16], tmp[17], tmp[18], tmp[19]]);
-		    RegionHeader.size = ntohl([tmp[20], tmp[21], tmp[22], tmp[23]]);
-//		    console.log("x = " + RegionHeader.x);
-//		    console.log("y = " + RegionHeader.y);
-//		    console.log("width = " + RegionHeader.width);
-//		    console.log("height = " + RegionHeader.height);
-//		    console.log("depth = " + RegionHeader.depth);
-//		    console.log("size = " + RegionHeader.size);
-		    if (RegionHeader.size > 0) {
-			state = State.ReadRegionData;
-		    } else if (regions == 0) {
-			while (input_events.length > 0) {
-			    send_input_event(socket, input_events.shift());
-			}
-//			console.log("no regions");
-			request = Request.REQ_SCREEN_UPDATE;
-			state = State.ReadAck;
-//			send_request(socket, request);
-			setTimeout(() => send_request(socket, request), 50);
-		    }
-		} else if (state == State.ReadRegionData) {
-		    if (RegionHeader.depth == Pix.PIX_JPEG_RGBA || RegionHeader.depth == Pix.PIX_JPEG_BGRA) {
-			let tmp = new Uint8Array(buffer);
-			const blob = new Blob([tmp], {type: 'image/jpeg'});
-			const image = new Image();
-			image.src = URL.createObjectURL(blob);
-			const x = RegionHeader.x;
-			const y = RegionHeader.y;
-			const w = RegionHeader.width;
-			const h = RegionHeader.height;
-			image.onload = function() {
-			    ctx.drawImage(this, x, y, w, h);
-			}
-		    } else if (RegionHeader.depth == Pix.PIX_LZ4_RGBA || RegionHeader.depth == Pix.PIX_LZ4_BGRA) {
-			let img_data = lz4.decompress(new Uint8ClampedArray(buffer), RegionHeader.width * RegionHeader.height * 4);
-			for (i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
-			    let swap = img_data[i + 0];
-			    img_data[i + 0] = img_data[i + 2];
-			    img_data[i + 2] = swap;
-			    img_data[i + 3] = 0xff; //tmp[i + 3];
-			}
-			ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
-		    } else if (RegionHeader.depth == Pix.PIX_RAW_RGBA || RegionHeader.depth == Pix.PIX_RAW_BGRA) {
-			let tmp = new Uint8Array(buffer);
-			let img_data = new Uint8ClampedArray(RegionHeader.width * RegionHeader.height * 4);
-			for (i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
-			    img_data[i + 0] = tmp[i + 2];
-			    img_data[i + 1] = tmp[i + 1];
-			    img_data[i + 2] = tmp[i + 0];
-			    img_data[i + 3] = 0xff; //tmp[i + 3];
-			}
-			ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
-		    } else {
-			console.log("Unsupported pixels yet " + RegionHeader.depth);
-		    }
-		    if (regions > 0) {
-			state = State.ReadRegionHeader;
-		    } else {
-			while (input_events.length > 0) {
-			    send_input_event(socket, input_events.shift());
-			}
-//			console.log("no regions");
-			request = Request.REQ_SCREEN_UPDATE;
-			state = State.ReadAck;
-//			send_request(socket, request);
-			setTimeout(() => send_request(socket, request), 50);
-		    }
+		    send_password(socket, password);
 		}
 	    }
-	});
+	} else if (request == Request.REQ_AUTHORIZATION) {
+	    if (state == State.ReadAck) {
+		status = ntohl(new Uint8Array(event.data));
+		if (status != 0) {
+		    console.log("Wrong password!");
+		    onerror(1, "Bad password");
+		}
+
+		request = Request.REQ_SCREEN_INFO;
+		state = State.ReadAck;
+		send_request(socket, request);
+	    }
+	} else if (request == Request.REQ_SCREEN_INFO) {
+	    if (state == State.ReadAck) {
+		tmp = new Uint8Array(event.data);
+		reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
+		ScreenInfo.width = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
+		ScreenInfo.height = ntohl([tmp[8], tmp[9], tmp[10], tmp[11]]);
+		ScreenInfo.depth = ntohl([tmp[12], tmp[13], tmp[14], tmp[15]]);
+		ScreenInfo.pixelformat = ntohl([tmp[16], tmp[17], tmp[18], tmp[19]]);
+		console.log("Reply " + reply);
+		console.log("width = " + ScreenInfo.width);
+		console.log("height = " + ScreenInfo.height);
+		console.log("depth = " + ScreenInfo.depth);
+		console.log("pixelformat = " + ScreenInfo.pixelformat);
+
+		canvas.width = ScreenInfo.width;
+		canvas.height = ScreenInfo.height;
+
+		ctx = canvas.getContext('2d');
+		ctx.mozImageSmoothingEnabled = false;
+		ctx.imageSmoothingEnabled = false;
+
+		request = Request.REQ_HOSTNAME;
+		state = State.ReadAck;
+		send_request(socket, request);
+	    }
+	} else if (request == Request.REQ_HOSTNAME) {
+	    if (state == State.ReadAck) {
+		tmp = new Uint8Array(event.data);
+		reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
+		console.log("Reply " + reply);
+		data_len = ntohl(tmp[4], tmp[5], tmp[6], tmp[7]);
+		state = State.ReadData;
+	    } else if (state == State.ReadData) {
+		RemoteHost = bytes_to_string(event.data);
+		console.log("Remote host " + RemoteHost);
+		document.title = RemoteHost;
+		start_input_devices();
+		request = Request.REQ_SCREEN_UPDATE;
+		state = State.ReadAck;
+		send_request(socket, request);
+	    }
+	} else if (request == Request.REQ_SCREEN_UPDATE) {
+	    if (state == State.ReadAck) {
+		tmp = new Uint8Array(event.data);
+		reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
+//		  console.log("Reply " + reply);
+		regions = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
+//		  console.log("Regions " + regions);
+		state = State.ReadRegionHeader;
+
+		if (regions == 0) {
+		    while (input_events.length > 0) {
+			send_input_event(socket, input_events.shift());
+		    }
+		    request = Request.REQ_SCREEN_UPDATE;
+		    state = State.ReadAck;
+		    setTimeout(() => send_request(socket, request), 50);
+		}
+	    } else if (state == State.ReadRegionHeader) {
+		regions--;
+		tmp = new Uint8Array(event.data);
+		RegionHeader.x = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
+		RegionHeader.y = ntohl([tmp[4], tmp[5], tmp[6], tmp[7]]);
+		RegionHeader.width = ntohl([tmp[8], tmp[9], tmp[10], tmp[11]]);
+		RegionHeader.height = ntohl([tmp[12], tmp[13], tmp[14], tmp[15]]);
+		RegionHeader.depth = ntohl([tmp[16], tmp[17], tmp[18], tmp[19]]);
+		RegionHeader.size = ntohl([tmp[20], tmp[21], tmp[22], tmp[23]]);
+//		  console.log("x = " + RegionHeader.x);
+//		  console.log("y = " + RegionHeader.y);
+//		  console.log("width = " + RegionHeader.width);
+//		  console.log("height = " + RegionHeader.height);
+//		  console.log("depth = " + RegionHeader.depth);
+//		  console.log("size = " + RegionHeader.size);
+
+		if (RegionHeader.size > 0) {
+		    state = State.ReadRegionData;
+		} else if (regions == 0) {
+		    while (input_events.length > 0) {
+			send_input_event(socket, input_events.shift());
+		    }
+//		      console.log("no regions");
+		    request = Request.REQ_SCREEN_UPDATE;
+		    state = State.ReadAck;
+//		      send_request(socket, request);
+		    setTimeout(() => send_request(socket, request), 50);
+		}
+	    } else if (state == State.ReadRegionData) {
+		if (RegionHeader.depth == Pix.PIX_JPEG_RGBA || RegionHeader.depth == Pix.PIX_JPEG_BGRA) {
+		    let tmp = new Uint8Array(event.data);
+		    const blob = new Blob([tmp], {type: 'image/jpeg'});
+		    const image = new Image();
+		    image.src = URL.createObjectURL(blob);
+		    const x = RegionHeader.x;
+		    const y = RegionHeader.y;
+		    const w = RegionHeader.width;
+		    const h = RegionHeader.height;
+		    image.onload = function() {
+			ctx.drawImage(this, x, y, w, h);
+		    }
+		} else if (RegionHeader.depth == Pix.PIX_LZ4_RGBA || RegionHeader.depth == Pix.PIX_LZ4_BGRA) {
+		    let img_data = lz4.decompress(new Uint8ClampedArray(event.data), RegionHeader.width * RegionHeader.height * 4);
+		    for (let i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
+			let swap = img_data[i + 0];
+			img_data[i + 0] = img_data[i + 2];
+			img_data[i + 2] = swap;
+			img_data[i + 3] = 0xff; //tmp[i + 3];
+		    }
+		    ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
+		} else if (RegionHeader.depth == Pix.PIX_RAW_RGBA || RegionHeader.depth == Pix.PIX_RAW_BGRA) {
+		    let tmp = new Uint8Array(event.data);
+		    let img_data = new Uint8ClampedArray(RegionHeader.width * RegionHeader.height * 4);
+		    for (let i = 0; i < RegionHeader.width * RegionHeader.height * 4; i += 4) {
+			img_data[i + 0] = tmp[i + 2];
+			img_data[i + 1] = tmp[i + 1];
+			img_data[i + 2] = tmp[i + 0];
+			img_data[i + 3] = 0xff; //tmp[i + 3];
+		    }
+		    ctx.putImageData(new ImageData(img_data, RegionHeader.width, RegionHeader.height), RegionHeader.x, RegionHeader.y);
+		} else {
+			console.log("Unsupported pixels yet " + RegionHeader.depth);
+		}
+
+		if (regions > 0) {
+		    state = State.ReadRegionHeader;
+		} else {
+		    while (input_events.length > 0) {
+			send_input_event(socket, input_events.shift());
+		    }
+//		      console.log("no regions");
+		    request = Request.REQ_SCREEN_UPDATE;
+		    state = State.ReadAck;
+//		      send_request(socket, request);
+		    setTimeout(() => send_request(socket, request), 50);
+		}
+	    }
+	}
     };
 
     socket.onclose = function(event) {
