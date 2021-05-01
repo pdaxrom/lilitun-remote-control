@@ -7,9 +7,14 @@ The system consists of three components - an application for sharing the desktop
 The source code implements a demo version of the application server, included in the docker image of the control server, which can be immediately launched on the VPS and used without any modifications.
 Connections are made via websocket 443 and can be hidden behind the CDN (tested with cloudflare cdn).
 
-The control server and webclient based on libvncserver and novnc.
+The remote control application uses its own desktop sharing protocol and web client.
+The management server uses [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) and [noVNC](https://novnc.com/info.html) for remote desktop sharing (soon to be replaced with the native protocol).
 
-### LiliTun remote control parameter
+## LiliTun remote control application
+
+The application can be launched by a link like ```lilink://``` or from the command line using the link to configure the application or set the settings manually.
+
+### LiliTun remote control configuration
 
 base64 encoded json data:
 ```
@@ -23,9 +28,9 @@ base64 encoded json data:
 
 appServerUrl points to a webscript that accepts http(s) post requests from the remote control server.
 
-`controlServerUrl` is the url of the control server
+`appServerUrl` is the url of the application server
 
-`controlServerPort` is the connection port
+`controlServerUrl` is the url of the control server
 
 `sessionId` is session id
 
