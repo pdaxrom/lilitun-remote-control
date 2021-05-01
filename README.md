@@ -8,7 +8,7 @@ The source code implements a demo version of the application server, included in
 Connections are made via websocket 443 and can be hidden behind the CDN (tested with cloudflare cdn).
 
 The remote control application uses its own desktop sharing protocol and web client.
-The management server uses [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) and [noVNC](https://novnc.com/info.html) for remote desktop sharing (soon to be replaced with the native protocol).
+The control server uses [LibVNC/libvncserver](https://github.com/LibVNC/libvncserver) and [noVNC](https://novnc.com/info.html) for remote desktop sharing (soon to be replaced with the native protocol).
 
 ## LiliTun remote control application
 
