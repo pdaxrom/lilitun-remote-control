@@ -4,6 +4,8 @@ The system is designed for remote desktop control with webcontrol. Supported ope
 
 The system consists of three components - an application for sharing the desktop, a control server for managing connections, and an application server for managing users and user sessions.
 
+<img src="remote-desktop-system.svg" width="70%">
+
 The source code implements a demo version of the application server, included in the docker image of the control server, which can be immediately launched on the VPS and used without any modifications.
 Connections are made via websocket 443 and can be hidden behind the CDN (tested with cloudflare cdn).
 
