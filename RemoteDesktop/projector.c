@@ -356,32 +356,9 @@ static int screen_diff(struct projector_t *projector, void *framebuffer, int reg
 	region->data = outbuffer;
 
 	return 1;
-
-//      write_log("Update header\n");
-//      send_screen_update_header(projector,
-//                                projector->varblock.min_x,
-//                                projector->varblock.min_y, rect_width, rect_height, pixfmt, outlen);
-
-//      write_log("send screen %d - %02X %02X %02X %02X\n", outlen, outbuffer[0], outbuffer[1], outbuffer[2], outbuffer[3]);
-
-//      if (tcp_write_all(projector, (char *)outbuffer, outlen) != outlen) {
-//          write_log("Error sending framebuffer!\n");
-//      }
-
-#if PICS_DUMP
-	static int fnamecount = 0;
-	char fname[256];
-	snprintf(fname, sizeof(fname), "/tmp/pic-%d.jpg", fnamecount++);
-	dump_file(fname, (char *)outbuffer, outlen);
-#endif
-
-//      free(outbuffer);
-    } else {
-	//write_log("Update header\n");
-//      send_screen_update_header(projector, 0, 0, 0, 0, 0, 0);
-	//write_log("send screen %d\n", 0);
-	return 0;
     }
+
+    return 0;
 }
 
 static void update_screen(void *arg, void *fb)
