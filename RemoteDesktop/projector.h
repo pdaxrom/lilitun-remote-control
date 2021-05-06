@@ -26,6 +26,16 @@ struct varblock_t {
     int max_y;
 };
 
+struct region_data {
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+    uint32_t pixfmt;
+    uint32_t length;
+    uint8_t *data;
+};
+
 struct projector_t {
     void *xgrabber;
     int scrWidth;
@@ -45,6 +55,10 @@ struct projector_t {
     void (*cb_user_password)(char *str);
     void (*cb_user_connection)(int port, int ipv6port);
     int (*cb_ssl_verify)(int err, char *cert);
+    pthread_mutex_t fb_mutex;
+    struct region_data *region;
+    int region_count;
+    int region_ready;
 };
 
 #ifdef __cplusplus

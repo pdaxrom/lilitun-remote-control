@@ -35,16 +35,6 @@ static char *remote_id = REMOTE_ID;
 static char *server_id = SERVER_ID;
 static char *client_id = CLIENT_ID;
 
-struct region_data {
-    uint32_t x;
-    uint32_t y;
-    uint32_t width;
-    uint32_t height;
-    uint32_t pixfmt;
-    uint32_t length;
-    uint8_t *data;
-};
-
 static struct projector_t *init_fb(void)
 {
     struct projector_t *projector = (struct projector_t *)malloc(sizeof(struct projector_t));
@@ -365,39 +355,34 @@ static void update_screen(void *arg, void *fb)
 {
     struct projector_t *projector = (struct projector_t *)arg;
 
-    struct region_data region[projector->blocks_x * projector->blocks_y];
+    pthread_mutex_lock(&projector->fb_mutex);
 
-    int region_count = 0;
+    if (!projector->region) {
+	projector->region = (struct region_data *) malloc(projector->blocks_x * projector->blocks_y * sizeof(struct region_data));
+    }
+
+if (projector->region_count > 0) {
+    fprintf(stderr, "skip regions %d\n", projector->region_count);
+}
+
+    for (int i = 0; i < projector->region_count; i++) {
+	free(projector->region[i].data);
+    }
+
+    projector->region_count = 0;
 
     for (int y = 0; y < projector->blocks_y; y++) {
 	for (int x = 0; x < projector->blocks_x; x++) {
 	    if (screen_diff
-		(projector, fb, x * BLOCK_WIDTH, y * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, &region[region_count])) {
-		region_count++;
+		(projector, fb, x * BLOCK_WIDTH, y * BLOCK_HEIGHT, BLOCK_WIDTH, BLOCK_HEIGHT, &projector->region[projector->region_count])) {
+		projector->region_count++;
 	    }
 	}
     }
 
-    req_screen_regions req = {
-	.req = htonl(REQ_SCREEN_UPDATE),
-	.regions = htonl(region_count)
-    };
+    projector->region_ready = 1;
 
-    if (tcp_write_all(projector, (char *)&req, sizeof(req)) != sizeof(req)) {
-	return;
-    }
-
-    int i = 0;
-    while (region_count--) {
-	send_screen_update_header(projector, region[i].x, region[i].y, region[i].width, region[i].height,
-				  region[i].pixfmt, region[i].length);
-
-	if (tcp_write_all(projector, (char *)region[i].data, region[i].length) != region[i].length) {
-	    write_log("Error sending framebuffer!\n");
-	}
-	free(region[i].data);
-	i++;
-    }
+    pthread_mutex_unlock(&projector->fb_mutex);
 }
 
 static void finish_fb(struct projector_t *projector)
@@ -427,7 +412,33 @@ static int send_req_screen_info(struct projector_t *projector)
 
 static int send_req_screen_update(struct projector_t *projector)
 {
-    GrabberGetScreen(projector->xgrabber, 0, 0, projector->scrWidth, projector->scrHeight, update_screen, projector);
+    int ret = 0;
+
+    pthread_mutex_lock(&projector->fb_mutex);
+
+    req_screen_regions req = {
+	.req = htonl(REQ_SCREEN_UPDATE),
+	.regions = htonl(projector->region_count)
+    };
+
+    if (tcp_write_all(projector, (char *)&req, sizeof(req)) == sizeof(req)) {
+	ret = 1;
+	for (int i = 0; i < projector->region_count; i++) {
+		send_screen_update_header(projector, projector->region[i].x, projector->region[i].y, projector->region[i].width, projector->region[i].height,
+				  projector->region[i].pixfmt, projector->region[i].length);
+
+		if (tcp_write_all(projector, (char *)projector->region[i].data, projector->region[i].length) != projector->region[i].length) {
+		    write_log("Error sending framebuffer!\n");
+		    ret = 0;
+		}
+		free(projector->region[i].data);
+	}
+	projector->region_count = 0;
+    }
+
+    projector->region_ready = 0;
+
+    pthread_mutex_unlock(&projector->fb_mutex);
 
     return 1;
 }
@@ -634,6 +645,9 @@ struct projector_t *projector_init()
 	projector->cb_user_password = cb_user_password;
 	projector->cb_user_connection = cb_user_connection;
 	projector->cb_ssl_verify = cb_ssl_verify;
+	projector->region = NULL;
+	projector->region_count = 0;
+	projector->region_ready = 0;
     }
 
     return projector;
@@ -804,12 +818,32 @@ typedef struct {
     pthread_t tid;
 } projector_thread_vars;
 
+static void *fb_thread(void *arg)
+{
+    projector_thread_vars *vars = (projector_thread_vars *) arg;
+
+    while (*vars->is_started) {
+	if (!vars->projector->region_ready) {
+	    GrabberGetScreen(vars->projector->xgrabber, 0, 0, vars->projector->scrWidth, vars->projector->scrHeight, update_screen, vars->projector);
+	}
+
+	usleep(100 * 1000);
+    }
+}
+
 static void *projector_thread(void *arg)
 {
     projector_thread_vars *vars = (projector_thread_vars *) arg;
 
+    pthread_mutex_init(&vars->projector->fb_mutex, NULL);
+
     if (check_remote_sig(vars->projector, (vars->connect_type == TCP_SERVER || vars->connect_type == TCP_SSL_SERVER))) {
+	pthread_t tid;
 	int authorized = !(vars->connect_type == TCP_SERVER || vars->connect_type == TCP_SSL_SERVER);
+	if (pthread_create(&tid, NULL, fb_thread, arg) != 0) {
+	    write_log("Can't create fb thread!\n");
+	    goto err;
+	}
 	write_log("Start screen sharing\n");
 	vars->projector->cb_error("Online");
 	while (*vars->is_started) {
@@ -898,6 +932,9 @@ static void *projector_thread(void *arg)
 		break;
 	    }
 	}
+
+	pthread_join(tid, NULL);
+
 	if (vars->projector->user_password) {
 	    free(vars->projector->user_password);
 	}
@@ -909,7 +946,11 @@ static void *projector_thread(void *arg)
 	*vars->is_started = 0;
 	vars->projector->cb_error("Error!");
     }
+
+ err:
     tcp_close(vars->projector->channel);
+
+    pthread_mutex_destroy(&vars->projector->fb_mutex);
 
     return NULL;
 }
@@ -1158,6 +1199,9 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
     }
 
  err:
+    if (projector->region) {
+	free(projector->region);
+    }
     if (scheme) {
 	free(scheme);
     }

@@ -416,7 +416,8 @@ function start_client(remote_url, password, onerror) {
 		    }
 		    request = Request.REQ_SCREEN_UPDATE;
 		    state = State.ReadAck;
-		    setTimeout(() => send_request(socket, request), 50);
+		    send_request(socket, request);
+//		    setTimeout(() => send_request(socket, request), 50);
 		}
 	    } else if (state == State.ReadRegionHeader) {
 		regions--;
@@ -443,8 +444,8 @@ function start_client(remote_url, password, onerror) {
 //		      console.log("no regions");
 		    request = Request.REQ_SCREEN_UPDATE;
 		    state = State.ReadAck;
-//		      send_request(socket, request);
-		    setTimeout(() => send_request(socket, request), 50);
+		    send_request(socket, request);
+//		    setTimeout(() => send_request(socket, request), 50);
 		}
 	    } else if (state == State.ReadRegionData) {
 		if (RegionHeader.depth == Pix.PIX_JPEG_RGBA || RegionHeader.depth == Pix.PIX_JPEG_BGRA) {
@@ -491,8 +492,8 @@ function start_client(remote_url, password, onerror) {
 //		      console.log("no regions");
 		    request = Request.REQ_SCREEN_UPDATE;
 		    state = State.ReadAck;
-//		      send_request(socket, request);
-		    setTimeout(() => send_request(socket, request), 50);
+		    send_request(socket, request);
+//		    setTimeout(() => send_request(socket, request), 50);
 		}
 	    }
 	}
