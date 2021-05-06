@@ -227,11 +227,6 @@ static unsigned char *get_raw_screen_data(struct projector_t *projector, int reg
 static int screen_diff(struct projector_t *projector, void *framebuffer, int reg_x, int reg_y, int reg_w, int reg_h,
 		       struct region_data *region)
 {
-    int x, y;
-    int xstep = 4 / projector->scrDepth;
-
-    uint32_t *f, *c;
-
     projector->varblock.min_x = projector->varblock.min_y = 9999;
     projector->varblock.max_x = projector->varblock.max_y = -1;
 
@@ -248,17 +243,20 @@ static int screen_diff(struct projector_t *projector, void *framebuffer, int reg
 	reg_h = projector->scrHeight - reg_y;
     }
 
-    f = (uint32_t *) framebuffer;
-    c = (uint32_t *) projector->compare_buf;
-
+    int x, y;
     for (y = reg_y; y < reg_y + reg_h; y++) {
+	int pix_changed = 0;
+	int offset = y * projector->scrWidth + reg_x;
+
+	uint32_t *f = (uint32_t *) framebuffer;
+	f += offset;
+	uint32_t *c = (uint32_t *) projector->compare_buf;
+	c += offset;
+
 	for (x = reg_x; x < reg_x + reg_w; x++) {
-	    int offset = y * projector->scrWidth + x;
-
-	    uint32_t pixel = f[offset];
-
-	    if (pixel != c[offset]) {
-		c[offset] = pixel;
+	    if (*f != *c) {
+		*c = *f;
+		pix_changed = 1;
 
 		if (x < projector->varblock.min_x) {
 		    projector->varblock.min_x = x;
@@ -267,14 +265,18 @@ static int screen_diff(struct projector_t *projector, void *framebuffer, int reg
 		if (x > projector->varblock.max_x) {
 		    projector->varblock.max_x = x;
 		}
+	    }
+	    f++;
+	    c++;
+	}
 
-		if (y < projector->varblock.min_y) {
-		    projector->varblock.min_y = y;
-		}
+	if (pix_changed) {
+	    if (y < projector->varblock.min_y) {
+		projector->varblock.min_y = y;
+	    }
 
-		if (y > projector->varblock.max_y) {
-		    projector->varblock.max_y = y;
-		}
+	    if (y > projector->varblock.max_y) {
+		projector->varblock.max_y = y;
 	    }
 	}
     }
