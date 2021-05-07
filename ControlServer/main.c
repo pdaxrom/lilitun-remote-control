@@ -20,6 +20,7 @@ static int is_not_exit = 1;
 
 static char *remote_id = REMOTE_ID;
 static char *server_id = SERVER_ID;
+static char *client_id = CLIENT_ID;
 
 static struct list_item *remote_connections_list = NULL;
 static pthread_mutex_t remote_connections_list_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -69,6 +70,7 @@ static int tcp_read_all(tcp_channel * channel, char *buf, int len)
 
 static int check_remote_sig(tcp_channel * channel)
 {
+    int ret = 0;
     int r;
     char buf[256];
 
@@ -78,7 +80,16 @@ static int check_remote_sig(tcp_channel * channel)
     }
 
     fprintf(stderr, "buf[%d]=%s\n", r, buf);
-    if (strcmp(buf, remote_id)) {
+
+    if (!strcmp(buf, remote_id)) {
+	ret = 1;
+    }
+
+    if (!strcmp(buf, client_id)) {
+	ret = 2;
+    }
+
+    if (!ret) {
 	return 0;
     }
 
@@ -87,7 +98,7 @@ static int check_remote_sig(tcp_channel * channel)
 	return 0;
     }
 
-    return 1;
+    return ret;
 }
 
 static int do_req_initial(tcp_channel * channel, uint32_t req)
@@ -243,7 +254,6 @@ static void *remote_connection_thread(void *arg)
 	return NULL;
     }
 
-    pthread_mutex_init(&conn->framebuffer_mutex, NULL);
     pthread_mutex_init(&conn->projector_io_mutex, NULL);
 
     conn->thread_alive = 0;
@@ -255,170 +265,7 @@ static void *remote_connection_thread(void *arg)
 
     if (check_remote_sig(conn->channel)) {
 	fprintf(stderr, "remote connection thread started!\n");
-	if (do_req_screen_info(conn->channel, &conn->screen_info)) {
-	    fprintf(stderr, "remote screen %dx%d depth %d pixelformat %d\n",
-		    conn->screen_info.width, conn->screen_info.height, conn->screen_info.depth,
-		    conn->screen_info.pixelformat);
-	    conn->framebuffer =
-		(uint8_t *) malloc(conn->screen_info.width * conn->screen_info.height * (conn->screen_info.depth / 8));
-	    memset(conn->framebuffer, 0,
-		   conn->screen_info.width * conn->screen_info.height * (conn->screen_info.depth / 8));
 
-	    conn->host = NULL;
-	    conn->httpdir = NULL;
-	    conn->port = portctrl_alloc();
-	    conn->ipv6port = portctrl_alloc();
-	    conn->httpport = -1;
-	    conn->http6port = -1;
-
-	    conn->passwds = malloc(sizeof(char**)*2);
-	    conn->passwds[0] = get_random_string(12);
-	    conn->passwds[1] = NULL;
-
-	    conn->apphost = NULL;
-	    conn->session_id = NULL;
-	    conn->hostname = NULL;
-
-	    pthread_mutex_lock(&conn->projector_io_mutex);
-	    if ((conn->apphost = do_req_appserver_host(conn->channel)) &&
-		(conn->session_id = do_req_session_id(conn->channel)) &&
-		(conn->hostname = do_req_hostname(conn->channel)) &&
-		send_user_connection(conn->channel, conn->port, conn->ipv6port) &&
-		send_user_password(conn->channel, conn->passwds[0])) {
-		if ((conn->translator = translator_init(conn, keyboard_event, pointer_event))) {
-		    fprintf(stderr, "apphost %s\n", conn->apphost);
-		    fprintf(stderr, "session id %s\n", conn->session_id);
-		    fprintf(stderr, "hostname %s\n", conn->hostname);
-		    fprintf(stderr, "remote users passwd %s\n", conn->passwds[0]);
-		    conn->thread_alive = 1;
-		    char msg[1024];
-		    snprintf(msg, sizeof(msg), "{\"requestType\":\"remoteControlStart\",\"sessionId\":\"%s\",\"hostname\":\"%s\",\"port\":\"%d\",\"ipv6port\":\"%d\",\"password\":\"%s\"}",
-				conn->session_id, conn->hostname, conn->port, conn->ipv6port, conn->passwds[0]);
-		    if (!message_send(conn->apphost, msg)) {
-			fprintf(stderr, "Appserver unavailable, close remote sharing!\n");
-			conn->thread_alive = 0;
-		    }
-		}
-	    }
-	    pthread_mutex_unlock(&conn->projector_io_mutex);
-	}
-
-	while (is_not_exit && conn->thread_alive) {
-#ifdef DEBUG_CLIENT_LOOP
-	    fprintf(stderr, "send screen update request\n");
-#endif
-	    pthread_mutex_lock(&conn->projector_io_mutex);
-
-	    if (conn->stop_req) {
-		do_req_stop(conn->channel);
-		conn->thread_alive = 0;
-		pthread_mutex_unlock(&conn->projector_io_mutex);
-		break;
-	    }
-
-	    send_input_events(conn);
-
-	    uint32_t regions;
-
-	    if (!do_req_screen_update(conn->channel, &regions)) {
-		conn->thread_alive = 0;
-
-		pthread_mutex_unlock(&conn->projector_io_mutex);
-		break;
-	    }
-
-	    if (!regions) {
-		pthread_mutex_unlock(&conn->projector_io_mutex);
-	    }
-
-	    while (regions--) {
-		uint32_t x, y, width, height, pixfmt, pixlen, rlen;
-
-		if (!do_req_screen_update_region(conn->channel, &x, &y, &width, &height, &pixfmt, &pixlen)) {
-		    conn->thread_alive = 0;
-
-		    pthread_mutex_unlock(&conn->projector_io_mutex);
-		    break;
-		}
-
-//fprintf(stderr, "x=%d y=%d w=%d h=%d pixfmt=%d pixlen=%d\n", x, y, width, height, pixfmt, pixlen);
-
-		char pixdata[pixlen];
-
-		if (pixlen > 0) {
-		    if ((rlen = tcp_read_all(conn->channel, pixdata, pixlen)) != pixlen) {
-			conn->thread_alive = 0;
-			fprintf(stderr, "Error reading framebuffer (%d of %d)\n", rlen, pixlen);
-
-			pthread_mutex_unlock(&conn->projector_io_mutex);
-			break;
-		    }
-		}
-
-		pthread_mutex_unlock(&conn->projector_io_mutex);
-
-#ifdef DEBUG_CLIENT_LOOP
-		fprintf(stderr, "screen update %d x %d - %d x %d bpp=%d length=%d\n", x, y, width, height, bpp, jpeglen);
-#endif
-
-		if (pixlen > 0) {
-		    unsigned char *rawImage = NULL;
-		    unsigned int rawWidth = width;
-		    unsigned int rawHeight = height;
-		    int rawPixelSize = 4;
-
-		    if (pixfmt == PIX_JPEG_BGRA || pixfmt == PIX_JPEG_RGBA) {
-			if (decompress_jpeg_to_raw
-			    ((unsigned char *)pixdata, pixlen, &rawImage, &rawWidth, &rawHeight, &rawPixelSize)) {
-			    conn->thread_alive = 0;
-			    fprintf(stderr, "error decompressing jpeg\n");
-			    break;
-			}
-		    } else if (pixfmt == PIX_LZ4_BGRA || pixfmt == PIX_LZ4_RGBA) {
-			int rawLen = rawWidth * rawHeight * 4;
-			rawImage = (unsigned char *) malloc(rawLen);
-			if (LZ4_decompress_safe(pixdata, rawImage, pixlen, rawLen) <= 0) {
-			    free(rawImage);
-			    conn->thread_alive = 0;
-			    fprintf(stderr, "error decompressing lz4\n");
-			    break;
-			}
-			rawPixelSize = 4;
-		    } else if (pixfmt == PIX_RAW_BGRA || pixfmt == PIX_RAW_RGBA) {
-			rawImage = pixdata;
-			rawPixelSize = 4;
-		    }
-#ifdef DEBUG_CLIENT_LOOP
-		    fprintf(stderr, "preparing image %dx%dx%d\n", rawWidth, rawHeight, rawPixelSize);
-#endif
-
-		    pthread_mutex_lock(&conn->framebuffer_mutex);
-		    fbops_bitblit(conn->framebuffer, conn->screen_info.width, conn->screen_info.height,
-				    conn->screen_info.depth, rawImage, x, y, rawWidth, rawHeight, rawPixelSize * 8, pixfmt);
-		    pthread_mutex_unlock(&conn->framebuffer_mutex);
-
-		    if (!(pixfmt == PIX_RAW_BGRA || pixfmt == PIX_RAW_RGBA)) {
-			free(rawImage);
-		    }
-		}
-	    }
-	    usleep(50000);
-	}
-    }
-
-    if (conn->translator) {
-	char msg[1024];
-	snprintf(msg, sizeof(msg), "{\"requestType\":\"remoteControlStop\",\"sessionId\":\"%s\"}",
-		conn->session_id);
-	if (!message_send(conn->apphost, msg)) {
-	    fprintf(stderr, "Appserver unavailable!\n");
-	}
-
-	portctrl_free(conn->port);
-	portctrl_free(conn->ipv6port);
-//	portctrl_free(conn->httpport);
-//	portctrl_free(conn->http6port);
-	translator_finish(conn->translator);
     }
 
     fprintf(stderr, "remote connection thread finished!\n");
@@ -443,18 +290,11 @@ static void *remote_connection_thread(void *arg)
 	free(conn->hostname);
     }
 
-    if (conn->framebuffer) {
-	free(conn->framebuffer);
-    }
-
     tcp_close(conn->channel);
 
     pthread_mutex_lock(&remote_connections_list_mutex);
     list_remove_data(&remote_connections_list, conn);
     pthread_mutex_unlock(&remote_connections_list_mutex);
-
-    pthread_mutex_destroy(&conn->projector_io_mutex);
-    pthread_mutex_destroy(&conn->framebuffer_mutex);
 
     free(conn);
 
@@ -698,8 +538,6 @@ int main(int argc, char *argv[])
     int projector_use_ssl;
     int projector_port;
     int client_use_ssl;
-    int client_port;
-    int client_port_size;
     pthread_t control_tid;
 
     /* Ignore PIPE signal and return EPIPE error */
@@ -726,12 +564,9 @@ int main(int argc, char *argv[])
 
     control_use_ssl = ConfigReadInt(conf, "controlusessl", 0);
     projector_use_ssl = ConfigReadInt(conf, "projectorusessl", 1);
-    client_use_ssl = ConfigReadInt(conf, "clientusessl", 0);
 
     control_port = ConfigReadInt(conf, "controlport", 9996);
     projector_port = ConfigReadInt(conf, "projectorport", 80);
-    client_port = ConfigReadInt(conf, "clientport", 7000);
-    client_port_size = ConfigReadInt(conf, "clientportsize", 512);
 
     ConfigClose(conf);
 
@@ -741,16 +576,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Control port      : %d\n", control_port);
     fprintf(stderr, "Projector use ssl : %d\n", projector_use_ssl);
     fprintf(stderr, "Projector port    : %d\n", projector_port);
-    fprintf(stderr, "Client use ssl    : %d\n", client_use_ssl);
-    fprintf(stderr, "Client port start : %d\n", client_port);
-    fprintf(stderr, "Client port end   : %d\n", client_port + client_port_size - 1);
 
     fprintf(stderr, "start control server\n");
-
-    if (!portctrl_init(client_port, client_port_size)) {
-	fprintf(stderr, "Cannot initialize port control!\n");
-	return -1;
-    }
 
     struct control_t *control = (struct control_t *) malloc(sizeof(struct control_t));
     control->port = control_port;
@@ -802,11 +629,7 @@ int main(int argc, char *argv[])
 	struct remote_connection_t *arg = malloc(sizeof(struct remote_connection_t));
 	memset(arg, 0, sizeof(struct remote_connection_t));
 	arg->channel = client;
-	arg->framebuffer = NULL;
-	arg->translator = NULL;
 	arg->passwds = NULL;
-	arg->input_events_counter = 0;
-	arg->pointer_old.buttons = -1;
 	arg->sslcertfile = sslcertfile;
 	arg->sslkeyfile = sslkeyfile;
 	arg->use_ssl = projector_use_ssl;
@@ -820,8 +643,6 @@ int main(int argc, char *argv[])
     }
 
     tcp_close(server);
-
-    portctrl_finish();
 
     if (sslkeyfile) {
 	free(sslkeyfile);

@@ -4,7 +4,7 @@ LIBS = $(CONFERENCEROOM_LIBS)
 
 bin_PROGRAMS = controlserver
 
-controlserver_SOURCES = base64.c getrandom.c list.c main.c messaging.c utils.c ../thirdparty/lz4/lz4.c config.c
+controlserver_SOURCES = base64.c getrandom.c list.c main.c messaging.c utils.c config.c
 
 #contentsdir = $(prefix)/Projector.app/Contents
 #contents_DATA = osx/PkgInfo osx/Info.plist

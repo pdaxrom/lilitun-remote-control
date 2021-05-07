@@ -281,8 +281,6 @@ fi
 build_autotools thirdparty/simple-connection-lib $AUTOCONF_OPTS --disable-shared --enable-static
 
 if [ "$TARGET_OS" != "Windows" -a "$TARGET_OS" != "MacOS" ]; then
-    build_cmake thirdparty/libvncserver -DWITH_SDL=OFF -DWITH_GTK=OFF -DWITH_FFMPEG=OFF -DWITH_GNUTLS=OFF -DWITH_OPENSSL=ON
-
     build_autotools ControlServer ${AUTOCONF_OPTS}
 fi
 
