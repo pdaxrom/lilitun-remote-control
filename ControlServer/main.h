@@ -26,6 +26,7 @@ struct remote_connection_t {
     int type;
     pthread_mutex_t projector_io_mutex;
     tcp_channel *channel;
+    tcp_channel *client;
     char *host;
     char *httpdir;
     char *sslkeyfile;
