@@ -10,7 +10,7 @@ AC_CHECK_PROGS([RC],[${ac_tool_prefix}windres])
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config])
 
-PKG_CHECK_MODULES_STATIC(CONFERENCEROOM, simple-connection libjpeg libvncserver)
+PKG_CHECK_MODULES_STATIC(CONFERENCEROOM, simple-connection)
 
 ADDONS_LIBS=""
 
