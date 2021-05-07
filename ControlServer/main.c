@@ -243,7 +243,6 @@ static int send_user_connection(tcp_channel * channel, int port, int ipv6port)
 
 static void *remote_connection_thread(void *arg)
 {
-    int type = 0;
     struct remote_connection_t *conn = (struct remote_connection_t *) arg;
 
     pthread_detach(pthread_self());
@@ -264,9 +263,13 @@ static void *remote_connection_thread(void *arg)
     list_add_data(&remote_connections_list, conn);
     pthread_mutex_unlock(&remote_connections_list_mutex);
 
-    if ((type = check_remote_sig(conn->channel))) {
+    if ((conn->type = check_remote_sig(conn->channel))) {
 	fprintf(stderr, "remote connection thread started, type = %s\n!\n", (type == 1) ? "Remote app" : "Client app");
-
+	if (conn->type == 1) {
+	    start_remote_app_session(conn);
+	} else {
+	    start_client_session(conn);
+	}
     }
 
     fprintf(stderr, "remote connection thread finished!\n");

@@ -23,6 +23,7 @@ struct control_connection_t {
 };
 
 struct remote_connection_t {
+    int type;
     pthread_mutex_t projector_io_mutex;
     tcp_channel *channel;
     char *host;
