@@ -500,6 +500,26 @@ static int send_req_hostname(struct projector_t *projector)
     return 1;
 }
 
+static int send_req_signature(struct projector_t *projector, char *signature)
+{
+    int len = strlen(signature);
+
+    req_hostname data = {
+	.req = htonl(REQ_SIGNATURE),
+	.length = htonl(len)
+    };
+
+    if (tcp_write_all(projector, (char *)&data, sizeof(data)) != sizeof(data)) {
+	return 0;
+    }
+
+    if (tcp_write_all(projector, signature, len) != len) {
+	return 0;
+    }
+
+    return 1;
+}
+
 static int recv_authorization(struct projector_t *projector, char *buf, int len)
 {
     uint32_t length = 0;
@@ -809,108 +829,107 @@ typedef struct {
 static void *projector_thread(void *arg)
 {
     projector_thread_vars *vars = (projector_thread_vars *) arg;
+    int authorized = 0;
 
-    if (check_remote_sig(vars->projector, (vars->connect_type == TCP_SERVER || vars->connect_type == TCP_SSL_SERVER))) {
-	int authorized = !(vars->connect_type == TCP_SERVER || vars->connect_type == TCP_SSL_SERVER);
-	write_log("Start screen sharing\n");
-	vars->projector->cb_error("Online");
-	while (*vars->is_started) {
-	    uint32_t req;
+    write_log("Start screen sharing\n");
+    vars->projector->cb_error("Online");
+    while (*vars->is_started) {
+	uint32_t req;
 //              write_log("Waiting request\n");
-	    if (recv_uint32(vars->projector, &req)) {
+	if (recv_uint32(vars->projector, &req)) {
 //                  write_log("Received request %d\n", req);
-		if (!authorized && req != REQ_AUTHORIZATION) {
-		    write_log("Not authorized!\n");
-		    *vars->status = STATUS_NOT_AUTHORIZED;
+	    if (req == REQ_SIGNATURE) {
+		if (!send_req_signature(vars->projector, remote_id)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
 		    break;
-		} else if (req == REQ_AUTHORIZATION) {
-		    char client_session_id[256];
-		    if (!recv_authorization(vars->projector, client_session_id, sizeof(client_session_id))) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		    if (strcmp(vars->session_id, client_session_id)) {
-			write_log("Wrong password [%s]!\n", client_session_id);
-			*vars->status = STATUS_NOT_AUTHORIZED;
-			send_uint32(vars->projector, 1);
-			break;
-		    }
-		    if (!send_uint32(vars->projector, 0)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		    authorized = 1;
-		} else if (req == REQ_SCREEN_INFO) {
-		    if (!send_req_screen_info(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_APPSERVER_HOST) {
-		    if (!send_req_appserver_host(vars->projector, vars->apphost)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_SESSION_ID) {
-		    if (!send_req_session_id(vars->projector, vars->session_id)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_HOSTNAME) {
-		    if (!send_req_hostname(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_SCREEN_UPDATE) {
-		    if (!send_req_screen_update(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_USER_PASSWORD) {
-		    if (!recv_user_password(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		    vars->projector->cb_user_password(vars->projector->user_password);
-		    write_log("User password is %s\n", vars->projector->user_password);
-		} else if (req == REQ_USER_CONNECTION) {
-		    if (!recv_user_connection(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		    vars->projector->cb_user_connection(vars->projector->user_port, vars->projector->user_ipv6port);
-		    write_log("User connection ipv4 port is %d, ipv6 port is %d\n", vars->projector->user_port,
-			      vars->projector->user_ipv6port);
-		} else if (req == REQ_KEYBOARD) {
-		    if (!recv_keyboard(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_POINTER) {
-		    if (!recv_pointer(vars->projector)) {
-			*vars->status = STATUS_CONNECTION_ERROR;
-			break;
-		    }
-		} else if (req == REQ_STOP) {
-		    break;
-		} else {
-		    *vars->status = STATUS_UNSUPPORTED_REQUEST;
 		}
-	    } else {
-		*vars->status = STATUS_CONNECTION_ERROR;
+	    } else if (req == REQ_APPSERVER_HOST) {
+		if (!send_req_appserver_host(vars->projector, vars->apphost)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_SESSION_ID) {
+		if (!send_req_session_id(vars->projector, vars->session_id)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_HOSTNAME) {
+		if (!send_req_hostname(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (!authorized && req != REQ_AUTHORIZATION) {
+		write_log("Not authorized!\n");
+		*vars->status = STATUS_NOT_AUTHORIZED;
 		break;
+	    } else if (req == REQ_AUTHORIZATION) {
+		char client_session_id[256];
+		if (!recv_authorization(vars->projector, client_session_id, sizeof(client_session_id))) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+		if (strcmp(vars->session_id, client_session_id)) {
+		    write_log("Wrong password [%s]!\n", client_session_id);
+		    *vars->status = STATUS_NOT_AUTHORIZED;
+		    send_uint32(vars->projector, 1);
+		    break;
+		}
+		if (!send_uint32(vars->projector, 0)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+		authorized = 1;
+	    } else if (req == REQ_SCREEN_INFO) {
+		if (!send_req_screen_info(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_SCREEN_UPDATE) {
+		if (!send_req_screen_update(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_USER_PASSWORD) {
+		if (!recv_user_password(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+		vars->projector->cb_user_password(vars->projector->user_password);
+		write_log("User password is %s\n", vars->projector->user_password);
+	    } else if (req == REQ_USER_CONNECTION) {
+		if (!recv_user_connection(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+		vars->projector->cb_user_connection(vars->projector->user_port, vars->projector->user_ipv6port);
+		write_log("User connection ipv4 port is %d, ipv6 port is %d\n", vars->projector->user_port,
+			  vars->projector->user_ipv6port);
+	    } else if (req == REQ_KEYBOARD) {
+		if (!recv_keyboard(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_POINTER) {
+		if (!recv_pointer(vars->projector)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+	    } else if (req == REQ_STOP) {
+		break;
+	    } else {
+		*vars->status = STATUS_UNSUPPORTED_REQUEST;
 	    }
+	} else {
+	    *vars->status = STATUS_CONNECTION_ERROR;
+	    break;
 	}
-	if (vars->projector->user_password) {
-	    free(vars->projector->user_password);
-	}
-	write_log("Stop screen sharing\n");
-	vars->projector->cb_error("Offline");
-    } else {
-	write_log("Wrong server signature!\n");
-	*vars->status = STATUS_VERSION_ERROR;
-	*vars->is_started = 0;
-	vars->projector->cb_error("Error!");
     }
+    if (vars->projector->user_password) {
+	free(vars->projector->user_password);
+    }
+    write_log("Stop screen sharing\n");
+    vars->projector->cb_error("Offline");
+
     tcp_close(vars->projector->channel);
 
     return NULL;
@@ -928,8 +947,7 @@ static void *http_thread(void *arg)
 
     char request[1024];
     if ((vars->connect_method == CONNECTION_METHOD_WS) &&
-	(!tcp_connection_upgrade
-	 (vars->client, SIMPLE_CONNECTION_METHOD_WS, vars->path, request, sizeof(request)))) {
+	(!tcp_connection_upgrade(vars->client, SIMPLE_CONNECTION_METHOD_WS, vars->path, request, sizeof(request)))) {
 //          write_log("http request %s\n", request);
 
 	char *file_path = header_get_path(request);
@@ -945,7 +963,8 @@ static void *http_thread(void *arg)
 	    if ((file = (char *)pseudofs_get_file(tmp, &len, &mime))) {
 		if (!strcmp(tmp, "/local.js")) {
 		    file = alloca(1024);
-		    snprintf(file, 1024, "// autogenerated begin\nconst local_wspath=\"%s\";\nconst local_connected = %d;\n// autogenerated end\n",
+		    snprintf(file, 1024,
+			     "// autogenerated begin\nconst local_wspath=\"%s\";\nconst local_connected = %d;\n// autogenerated end\n",
 			     vars->path, *vars->connected);
 		    len = strlen(file);
 		}
@@ -1060,9 +1079,9 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    while (*is_started) {
 		fd_set fds;
 		int res;
-		struct timeval tv = {0, 500000};
-		FD_ZERO (&fds);
-		FD_SET (tcp_fd(server), &fds);
+		struct timeval tv = { 0, 500000 };
+		FD_ZERO(&fds);
+		FD_SET(tcp_fd(server), &fds);
 		res = select(tcp_fd(server) + 1, &fds, NULL, NULL, &tv);
 		if (res < 0) {
 		    fprintf(stderr, "%s select()\n", __FUNCTION__);
@@ -1111,7 +1130,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	} while (*is_started);
 
 	int active = 1;
-	while(active)  {
+	while (active) {
 	    pthread_mutex_lock(&projector->threads_list_mutex);
 	    if (!projector->threads_list) {
 		active = 0;

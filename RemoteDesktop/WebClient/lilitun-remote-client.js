@@ -1,3 +1,5 @@
+const REMOTE_ID = "Remote access application 1.0   ";
+const SERVER_ID = "Remote sharing server 1.0       ";
 const CLIENT_ID = "Remote client application 1.0   ";
 
 const Request = {
@@ -12,8 +14,8 @@ const Request = {
     REQ_SESSION_ID : 8,
     REQ_HOSTNAME : 9,
     REQ_AUTHORIZATION : 10,
-    REQ_STOP : 11,
-    REQ_SIGNATURE : 128
+    REQ_SIGNATURE : 11,
+    REQ_STOP : 12
 };
 
 const Pix = {
@@ -323,30 +325,29 @@ function start_client(remote_url, password, onerror) {
     socket.onopen = function(e) {
 	console.log("[open] Connection established");
 	console.log("Sending to server");
-	state = State.ReadUint32;
+
 	request = Request.REQ_SIGNATURE;
-	send_string(socket, CLIENT_ID);
+	state = State.ReadAck;
+	send_request(socket, request);
     };
 
     socket.onmessage = function(event) {
 //	console.log(`[message] Data received from server: ${event.data}`);
 //	console.log('Buffer length ' + event.data.byteLength);
 	if (request == Request.REQ_SIGNATURE) {
-	    if (state == State.ReadUint32) {
-		data_len = ntohl(new Uint8Array(event.data));
-		console.log('Data len ' + data_len);
+	    if (state == State.ReadAck) {
+		tmp = new Uint8Array(event.data);
+		reply = ntohl([tmp[0], tmp[1], tmp[2], tmp[3]]);
+		console.log("Reply " + reply);
+		data_len = ntohl(tmp[4], tmp[5], tmp[6], tmp[7]);
 		state = State.ReadData;
 	    } else if (state == State.ReadData) {
-		if (event.data.byteLength != data_len) {
-		    console.log("Wrong data length!");
-		} else {
-		    signature = bytes_to_string(event.data);
-		    console.log("Signature " + signature);
+		signature = bytes_to_string(event.data);
+		console.log("Remote signature " + signature);
 
-		    request = Request.REQ_AUTHORIZATION;
-		    state = State.ReadAck;
-		    send_password(socket, password);
-		}
+		request = Request.REQ_AUTHORIZATION;
+		state = State.ReadAck;
+		send_password(socket, password);
 	    }
 	} else if (request == Request.REQ_AUTHORIZATION) {
 	    if (state == State.ReadAck) {

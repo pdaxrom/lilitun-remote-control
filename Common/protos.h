@@ -17,6 +17,7 @@ enum {
     REQ_SESSION_ID,
     REQ_HOSTNAME,
     REQ_AUTHORIZATION,
+    REQ_SIGNATURE,
     REQ_STOP
 };
 
