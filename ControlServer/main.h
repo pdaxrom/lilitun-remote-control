@@ -23,25 +23,19 @@ struct control_connection_t {
 };
 
 struct remote_connection_t {
-    tcp_channel *channel;
     pthread_mutex_t projector_io_mutex;
+    tcp_channel *channel;
     char *host;
     char *httpdir;
     char *sslkeyfile;
     char *sslcertfile;
     int use_ssl;
     int client_use_ssl;
-    char **passwds;
-    int httpport;
-    int http6port;
-    int port;
-    int ipv6port;
     char *apphost;
     char *session_id;
     char *hostname;
     int thread_alive;
     int stop_req;
-    struct translator_t *translator;
     pthread_t tid;
 };
 

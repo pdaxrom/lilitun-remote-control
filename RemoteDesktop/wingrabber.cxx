@@ -6,7 +6,7 @@
 #include <d3d9.h>
 
 #include "xgrabber.h"
-#include "../thirdparty/libvncserver/rfb/keysym.h"
+#include "keysym.h"
 
 typedef struct XGrabber {
     int width, height, depth;

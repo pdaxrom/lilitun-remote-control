@@ -243,6 +243,7 @@ static int send_user_connection(tcp_channel * channel, int port, int ipv6port)
 
 static void *remote_connection_thread(void *arg)
 {
+    int type = 0;
     struct remote_connection_t *conn = (struct remote_connection_t *) arg;
 
     pthread_detach(pthread_self());
@@ -254,29 +255,21 @@ static void *remote_connection_thread(void *arg)
 	return NULL;
     }
 
-    pthread_mutex_init(&conn->projector_io_mutex, NULL);
-
     conn->thread_alive = 0;
     conn->stop_req = 0;
+
+    pthread_mutex_init(&conn->projector_io_mutex, NULL);
 
     pthread_mutex_lock(&remote_connections_list_mutex);
     list_add_data(&remote_connections_list, conn);
     pthread_mutex_unlock(&remote_connections_list_mutex);
 
-    if (check_remote_sig(conn->channel)) {
-	fprintf(stderr, "remote connection thread started!\n");
+    if ((type = check_remote_sig(conn->channel))) {
+	fprintf(stderr, "remote connection thread started, type = %s\n!\n", (type == 1) ? "Remote app" : "Client app");
 
     }
 
     fprintf(stderr, "remote connection thread finished!\n");
-
-    if (conn->passwds) {
-	for(char **passwd = conn->passwds; *passwd; passwd++) {
-	    free(*passwd);
-	}
-
-	free(conn->passwds);
-    }
 
     if (conn->apphost) {
 	free(conn->apphost);
@@ -295,6 +288,8 @@ static void *remote_connection_thread(void *arg)
     pthread_mutex_lock(&remote_connections_list_mutex);
     list_remove_data(&remote_connections_list, conn);
     pthread_mutex_unlock(&remote_connections_list_mutex);
+
+    pthread_mutex_destroy(&conn->projector_io_mutex);
 
     free(conn);
 
@@ -544,7 +539,7 @@ int main(int argc, char *argv[])
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, exit_signal);
 
-    Config *conf = ConfigOpen(CONFIG_DIR "/controlserver.conf");
+    Config *conf = ConfigOpen((argc > 1) ? argv[1] : CONFIG_DIR "/controlserver.conf");
     if (!conf) {
 	fprintf(stderr, "Cannot open config file!\n");
 	return -1;
@@ -629,7 +624,6 @@ int main(int argc, char *argv[])
 	struct remote_connection_t *arg = malloc(sizeof(struct remote_connection_t));
 	memset(arg, 0, sizeof(struct remote_connection_t));
 	arg->channel = client;
-	arg->passwds = NULL;
 	arg->sslcertfile = sslcertfile;
 	arg->sslkeyfile = sslkeyfile;
 	arg->use_ssl = projector_use_ssl;

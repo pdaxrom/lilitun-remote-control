@@ -9,7 +9,7 @@
 #include <pthread.h>
 
 #include "xgrabber.h"
-#include "../thirdparty/libvncserver/rfb/keysym.h"
+#include "keysym.h"
 
 void error_for_exit(char *str);
 
