@@ -68,37 +68,28 @@ static int tcp_read_all(tcp_channel * channel, char *buf, int len)
     return total;
 }
 
-static int check_remote_sig(tcp_channel * channel)
+static char *read_string(tcp_channel *channel, int maxlen)
 {
-    int ret = 0;
-    int r;
-    char buf[256];
+    uint32_t len;
 
-    if ((r = tcp_read_all(channel, buf, strlen(remote_id) + 1)) != (strlen(remote_id) + 1)) {
-	fprintf(stderr, "%s: tcp_read()\n", __func__);
-	return 0;
+    if (!recv_uint32(channel, &len)) {
+	return NULL;
     }
 
-    fprintf(stderr, "buf[%d]=%s\n", r, buf);
-
-    if (!strcmp(buf, remote_id)) {
-	ret = 1;
+    if (maxlen > 0) {
+	len = (len > maxlen) ? maxlen : len;
     }
 
-    if (!strcmp(buf, client_id)) {
-	ret = 2;
+    char *str = (char *) malloc(len + 1);
+
+    if (tcp_read_all(channel, str, len) != len) {
+	free(str);
+	return NULL;
     }
 
-    if (!ret) {
-	return 0;
-    }
+    str[len] = 0;
 
-    if ((r = tcp_write(channel, server_id, strlen(server_id) + 1)) <= 0) {
-	fprintf(stderr, "%s: tcp_write()\n", __func__);
-	return 0;
-    }
-
-    return ret;
+    return str;
 }
 
 static int do_req_initial(tcp_channel * channel, uint32_t req)
@@ -120,28 +111,39 @@ static int do_req_initial(tcp_channel * channel, uint32_t req)
     return 1;
 }
 
+static int do_rcv_signature(tcp_channel *channel)
+{
+    if (!send_uint32(channel, RCV_SIGNATURE)) {
+	return 0;
+    }
+
+    if (!send_uint32(channel, strlen(server_id))) {
+	return 0;
+    }
+
+    if (tcp_write(channel, server_id, strlen(server_id)) != strlen(server_id)) {
+	return 0;
+    }
+
+    return 1;
+}
+
+static char *do_req_signature(tcp_channel *channel)
+{
+    if (!do_req_initial(channel, REQ_SIGNATURE)) {
+	return NULL;
+    }
+
+    return read_string(channel, 32);
+}
+
 static char *do_req_appserver_host(tcp_channel * channel)
 {
     if (!do_req_initial(channel, REQ_APPSERVER_HOST)) {
 	return NULL;
     }
 
-    uint32_t len;
-
-    if (!recv_uint32(channel, &len)) {
-	return NULL;
-    }
-
-    char *str = (char *) malloc(len + 1);
-
-    if (tcp_read_all(channel, str, len) != len) {
-	free(str);
-	return NULL;
-    }
-
-    str[len] = 0;
-
-    return str;
+    return read_string(channel, 256);
 }
 
 static char *do_req_session_id(tcp_channel * channel)
@@ -150,22 +152,7 @@ static char *do_req_session_id(tcp_channel * channel)
 	return NULL;
     }
 
-    uint32_t len;
-
-    if (!recv_uint32(channel, &len)) {
-	return NULL;
-    }
-
-    char *str = (char *) malloc(len + 1);
-
-    if (tcp_read_all(channel, str, len) != len) {
-	free(str);
-	return NULL;
-    }
-
-    str[len] = 0;
-
-    return str;
+    return read_string(channel, 256);
 }
 
 static char *do_req_hostname(tcp_channel * channel)
@@ -174,22 +161,7 @@ static char *do_req_hostname(tcp_channel * channel)
 	return NULL;
     }
 
-    uint32_t len;
-
-    if (!recv_uint32(channel, &len)) {
-	return NULL;
-    }
-
-    char *str = (char *) malloc(len + 1);
-
-    if (tcp_read_all(channel, str, len) != len) {
-	free(str);
-	return NULL;
-    }
-
-    str[len] = 0;
-
-    return str;
+    return read_string(channel, 256);
 }
 
 static int do_req_stop(tcp_channel *channel)
@@ -255,12 +227,14 @@ static void *remote_connection_thread(void *arg)
 
     pthread_detach(pthread_self());
 
-    if (!tcp_connection_upgrade(conn->channel, SIMPLE_CONNECTION_METHOD_WS, "/projector-ws", NULL, 0)) {
+    if (!tcp_connection_upgrade(conn->channel, SIMPLE_CONNECTION_METHOD_WS, NULL, NULL, 0)) {
 	fprintf(stderr, "%s: http ws method error!\n", __func__);
 	tcp_close(conn->channel);
 	free(conn);
 	return NULL;
     }
+
+    fprintf(stderr, "websocket path is %s\n", tcp_ws_path(conn->channel));
 
     conn->thread_alive = 0;
     conn->stop_req = 0;
@@ -271,14 +245,14 @@ static void *remote_connection_thread(void *arg)
     list_add_data(&remote_connections_list, conn);
     pthread_mutex_unlock(&remote_connections_list_mutex);
 
-    if ((conn->type = check_remote_sig(conn->channel))) {
-	fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
-	if (conn->type == 1) {
-	    start_remote_app_session(conn);
-	} else {
-	    start_client_session(conn);
-	}
-    }
+//    if ((conn->type = check_remote_sig(conn->channel))) {
+//	fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
+//	if (conn->type == 1) {
+//	    start_remote_app_session(conn);
+//	} else {
+//	    start_client_session(conn);
+//	}
+//    }
 
     fprintf(stderr, "remote connection thread finished!\n");
 
@@ -539,6 +513,8 @@ int main(int argc, char *argv[])
 {
     char *sslcertfile = NULL;
     char *sslkeyfile = NULL;
+    char *remote_path = NULL;
+    char *client_path = NULL;
     int control_use_ssl;
     int control_port;
     int projector_use_ssl;
@@ -574,6 +550,9 @@ int main(int argc, char *argv[])
     control_port = ConfigReadInt(conf, "controlport", 9996);
     projector_port = ConfigReadInt(conf, "projectorport", 80);
 
+    remote_path = ConfigReadString(conf, "remote_path", NULL, 0, "/remote");
+    client_path = ConfigReadString(conf, "client_path", NULL, 0, "/viewer");
+
     ConfigClose(conf);
 
     fprintf(stderr, "SSL cert file     : %s\n", sslcertfile);
@@ -582,6 +561,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Control port      : %d\n", control_port);
     fprintf(stderr, "Projector use ssl : %d\n", projector_use_ssl);
     fprintf(stderr, "Projector port    : %d\n", projector_port);
+    fprintf(stderr, "Remote path       : %s\n", remote_path);
+    fprintf(stderr, "Client path       : %s\n", client_path);
 
     fprintf(stderr, "start control server\n");
 
@@ -637,6 +618,8 @@ int main(int argc, char *argv[])
 	arg->channel = client;
 	arg->sslcertfile = sslcertfile;
 	arg->sslkeyfile = sslkeyfile;
+	arg->remote_path = remote_path;
+	arg->client_path = client_path;
 	arg->use_ssl = projector_use_ssl;
 	arg->client_use_ssl = client_use_ssl;
 
@@ -648,6 +631,14 @@ int main(int argc, char *argv[])
     }
 
     tcp_close(server);
+
+    if (remote_path) {
+	free(remote_path);
+    }
+
+    if (client_path) {
+	free(client_path);
+    }
 
     if (sslkeyfile) {
 	free(sslkeyfile);

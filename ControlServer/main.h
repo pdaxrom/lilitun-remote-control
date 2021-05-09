@@ -31,6 +31,8 @@ struct remote_connection_t {
     char *httpdir;
     char *sslkeyfile;
     char *sslcertfile;
+    char *remote_path;
+    char *client_path;
     int use_ssl;
     int client_use_ssl;
     char *apphost;
