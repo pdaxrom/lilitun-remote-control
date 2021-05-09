@@ -68,7 +68,7 @@ static int tcp_read_all(tcp_channel * channel, char *buf, int len)
     return total;
 }
 
-static char *read_string(tcp_channel *channel, int maxlen)
+static char *read_string(tcp_channel * channel, int maxlen)
 {
     uint32_t len;
 
@@ -80,7 +80,7 @@ static char *read_string(tcp_channel *channel, int maxlen)
 	len = (len > maxlen) ? maxlen : len;
     }
 
-    char *str = (char *) malloc(len + 1);
+    char *str = (char *)malloc(len + 1);
 
     if (tcp_read_all(channel, str, len) != len) {
 	free(str);
@@ -111,7 +111,7 @@ static int do_req_initial(tcp_channel * channel, uint32_t req)
     return 1;
 }
 
-static int do_rcv_signature(tcp_channel *channel)
+static int do_rcv_signature(tcp_channel * channel)
 {
     if (!send_uint32(channel, RCV_SIGNATURE)) {
 	return 0;
@@ -128,7 +128,7 @@ static int do_rcv_signature(tcp_channel *channel)
     return 1;
 }
 
-static char *do_req_signature(tcp_channel *channel)
+static char *do_req_signature(tcp_channel * channel)
 {
     if (!do_req_initial(channel, REQ_SIGNATURE)) {
 	return NULL;
@@ -164,7 +164,7 @@ static char *do_req_hostname(tcp_channel * channel)
     return read_string(channel, 256);
 }
 
-static int do_req_stop(tcp_channel *channel)
+static int do_req_stop(tcp_channel * channel)
 {
     if (!send_uint32(channel, REQ_STOP)) {
 	return 0;
@@ -173,7 +173,7 @@ static int do_req_stop(tcp_channel *channel)
     return 1;
 }
 
-static int send_user_password(tcp_channel * channel, char * password)
+static int send_user_password(tcp_channel * channel, char *password)
 {
     if (!send_uint32(channel, REQ_USER_PASSWORD)) {
 	return 0;
@@ -223,7 +223,7 @@ static void start_client_session(struct remote_connection_t *conn)
 
 static void *remote_connection_thread(void *arg)
 {
-    struct remote_connection_t *conn = (struct remote_connection_t *) arg;
+    struct remote_connection_t *conn = (struct remote_connection_t *)arg;
 
     pthread_detach(pthread_self());
 
@@ -236,25 +236,36 @@ static void *remote_connection_thread(void *arg)
 
     fprintf(stderr, "websocket path is %s\n", tcp_ws_path(conn->channel));
 
-    conn->thread_alive = 0;
-    conn->stop_req = 0;
+    if (!strcmp(tcp_ws_path(conn->channel), conn->remote_path)) {
+	conn->thread_alive = 0;
+	conn->stop_req = 0;
 
-    pthread_mutex_init(&conn->projector_io_mutex, NULL);
+	pthread_mutex_init(&conn->projector_io_mutex, NULL);
 
-    pthread_mutex_lock(&remote_connections_list_mutex);
-    list_add_data(&remote_connections_list, conn);
-    pthread_mutex_unlock(&remote_connections_list_mutex);
+	pthread_mutex_lock(&remote_connections_list_mutex);
+	list_add_data(&remote_connections_list, conn);
+	pthread_mutex_unlock(&remote_connections_list_mutex);
 
 //    if ((conn->type = check_remote_sig(conn->channel))) {
-//	fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
-//	if (conn->type == 1) {
-//	    start_remote_app_session(conn);
-//	} else {
-//	    start_client_session(conn);
-//	}
+//      fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
+//      if (conn->type == 1) {
+//          start_remote_app_session(conn);
+//      } else {
+//          start_client_session(conn);
+//      }
 //    }
 
-    fprintf(stderr, "remote connection thread finished!\n");
+	pthread_mutex_lock(&remote_connections_list_mutex);
+	list_remove_data(&remote_connections_list, conn);
+	pthread_mutex_unlock(&remote_connections_list_mutex);
+
+	pthread_mutex_destroy(&conn->projector_io_mutex);
+
+	fprintf(stderr, "remote connection thread finished!\n");
+    } else if (!strcmp(tcp_ws_path(conn->channel), conn->client_path)) {
+    } else {
+	fprintf(stderr, "Unknown connection!\n");
+    }
 
     if (conn->apphost) {
 	free(conn->apphost);
@@ -269,12 +280,6 @@ static void *remote_connection_thread(void *arg)
     }
 
     tcp_close(conn->channel);
-
-    pthread_mutex_lock(&remote_connections_list_mutex);
-    list_remove_data(&remote_connections_list, conn);
-    pthread_mutex_unlock(&remote_connections_list_mutex);
-
-    pthread_mutex_destroy(&conn->projector_io_mutex);
 
     free(conn);
 
@@ -303,7 +308,7 @@ static void *stop_sharing(char *session_id)
     pthread_mutex_unlock(&remote_connections_list_mutex);
 }
 
-static int get_http_header(tcp_channel *channel, char *head, int headLen)
+static int get_http_header(tcp_channel * channel, char *head, int headLen)
 {
     int nread;
     int totalRead = 0;
@@ -312,7 +317,7 @@ static int get_http_header(tcp_channel *channel, char *head, int headLen)
     while (totalRead < headLen - 1) {
 	nread = tcp_read(channel, &head[totalRead], 1);
 	if (nread <= 0) {
-//		fprintf(stderr, "%s: Cannot read response (%s)\n", __func__, strerror(errno));
+//              fprintf(stderr, "%s: Cannot read response (%s)\n", __func__, strerror(errno));
 	    return -1;
 	}
 	crlf[0] = crlf[1];
@@ -324,7 +329,7 @@ static int get_http_header(tcp_channel *channel, char *head, int headLen)
 
 	if (crlf[0] == 13 && crlf[1] == 10 && crlf[2] == 13 && crlf[3] == 10) {
 	    break;
-	    }
+	}
 
 	if (crlf[2] == 10 && crlf[3] == 10) {
 	    break;
@@ -336,7 +341,8 @@ static int get_http_header(tcp_channel *channel, char *head, int headLen)
     return totalRead;
 }
 
-static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+static int jsoneq(const char *json, jsmntok_t * tok, const char *s)
+{
     if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start &&
 	strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
 
@@ -348,7 +354,7 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 
 static void *control_connection_thread(void *arg)
 {
-    struct control_connection_t *conn = (struct control_connection_t *) arg;
+    struct control_connection_t *conn = (struct control_connection_t *)arg;
 
     pthread_detach(pthread_self());
 
@@ -376,7 +382,7 @@ static void *control_connection_thread(void *arg)
 
 		    jsmn_init(&p);
 		    int r = jsmn_parse(&p, req, strlen(req), t,
-				sizeof(t) / sizeof(t[0]));
+				       sizeof(t) / sizeof(t[0]));
 		    if (r < 0) {
 			fprintf(stderr, "Failed to parse JSON: %d\n", r);
 			resp = "HTTP/1.1 403 Forbidden\r\n\r\n";
@@ -443,13 +449,15 @@ static void *control_connection_thread(void *arg)
 
 static void *control_thread(void *arg)
 {
-    struct control_t *control = (struct control_t *) arg;
+    struct control_t *control = (struct control_t *)arg;
 
     pthread_detach(pthread_self());
 
     fprintf(stderr, "start control thread\n");
 
-    tcp_channel *server = tcp_open(control->use_ssl ? TCP_SSL_SERVER : TCP_SERVER, NULL, control->port, control->sslkeyfile, control->sslcertfile);
+    tcp_channel *server =
+	tcp_open(control->use_ssl ? TCP_SSL_SERVER : TCP_SERVER, NULL, control->port, control->sslkeyfile,
+		 control->sslcertfile);
     if (!server) {
 	fprintf(stderr, "tcp_open()\n");
 	is_not_exit = 0;
@@ -566,13 +574,13 @@ int main(int argc, char *argv[])
 
     fprintf(stderr, "start control server\n");
 
-    struct control_t *control = (struct control_t *) malloc(sizeof(struct control_t));
+    struct control_t *control = (struct control_t *)malloc(sizeof(struct control_t));
     control->port = control_port;
     control->use_ssl = control_use_ssl;
     control->sslcertfile = sslcertfile;
     control->sslkeyfile = sslkeyfile;
 
-    if (pthread_create(&control_tid, NULL, &control_thread, (void *) control) != 0) {
+    if (pthread_create(&control_tid, NULL, &control_thread, (void *)control) != 0) {
 	fprintf(stderr, "%s pthread_create(control_thread)\n", __func__);
 	free(control);
 	free(sslcertfile);
@@ -580,7 +588,8 @@ int main(int argc, char *argv[])
 	return -1;
     }
 
-    tcp_channel *server = tcp_open(projector_use_ssl ? TCP_SSL_SERVER : TCP_SERVER, NULL, projector_port, sslkeyfile, sslcertfile);
+    tcp_channel *server =
+	tcp_open(projector_use_ssl ? TCP_SSL_SERVER : TCP_SERVER, NULL, projector_port, sslkeyfile, sslcertfile);
     if (!server) {
 	fprintf(stderr, "tcp_open()\n");
 	return -1;
