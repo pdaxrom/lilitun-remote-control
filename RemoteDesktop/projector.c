@@ -541,7 +541,7 @@ static int recv_authorization(struct projector_t *projector, char *buf, int len)
     return 1;
 }
 
-static int recv_user_password(struct projector_t *projector)
+static int recv_new_string(struct projector_t *projector, char **str, int maxlen)
 {
     uint32_t length = 0;
 
@@ -549,16 +549,30 @@ static int recv_user_password(struct projector_t *projector)
 	return 0;
     }
 
-    projector->user_password = (char *)malloc(length + 1);
-    if (tcp_read_all(projector, projector->user_password, length) != length) {
-	free(projector->user_password);
-	projector->user_password = NULL;
+    if (maxlen > 0) {
+	length = (length > maxlen) ? maxlen : length;
+    }
+
+    *str = (char *)malloc(length + 1);
+    if (tcp_read_all(projector, *str, length) != length) {
+	free(*str);
+	*str = NULL;
 	return 0;
     }
 
-    projector->user_password[length] = 0;
+    (*str)[length] = 0;
 
     return 1;
+}
+
+static int recv_user_password(struct projector_t *projector)
+{
+    return recv_new_string(projector, &projector->user_password, 64);
+}
+
+static int recv_signature(struct projector_t *projector, char **signature)
+{
+    return recv_new_string(projector, signature, 32);
 }
 
 static int recv_user_connection(struct projector_t *projector)
@@ -821,6 +835,7 @@ typedef struct {
     const char *controlhost;
     const char *apphost;
     const char *path;
+    const char *password;
     const char *session_id;
     int *status;
     pthread_t tid;
@@ -830,6 +845,7 @@ static void *projector_thread(void *arg)
 {
     projector_thread_vars *vars = (projector_thread_vars *) arg;
     int authorized = 0;
+    int identified = 0;
 
     write_log("Start screen sharing\n");
     vars->projector->cb_error("Online");
@@ -838,7 +854,29 @@ static void *projector_thread(void *arg)
 //              write_log("Waiting request\n");
 	if (recv_uint32(vars->projector, &req)) {
 //                  write_log("Received request %d\n", req);
-	    if (req == REQ_SIGNATURE) {
+	    if (!identified && req != RCV_SIGNATURE) {
+		write_log("Not authorized!\n");
+		*vars->status = STATUS_NOT_AUTHORIZED;
+		break;
+	    } else if (req == RCV_SIGNATURE) {
+		char *signature = NULL;
+		if (!recv_signature(vars->projector, &signature)) {
+		    *vars->status = STATUS_CONNECTION_ERROR;
+		    break;
+		}
+		if (!strcmp(signature, server_id)) {
+		    write_log("Connected to the server, waiting for the client...\n");
+		} else if (!strcmp(signature, client_id)) {
+		    write_log("Connected to the client\n");
+		} else {
+		    write_log("Unknown connection type, error!\n");
+		    free(signature);
+		    *vars->status = STATUS_WRONG_SIGNATURE;
+		    break;
+		}
+		free(signature);
+		identified = 1;
+	    } else if (req == REQ_SIGNATURE) {
 		if (!send_req_signature(vars->projector, remote_id)) {
 		    *vars->status = STATUS_CONNECTION_ERROR;
 		    break;
@@ -863,13 +901,13 @@ static void *projector_thread(void *arg)
 		*vars->status = STATUS_NOT_AUTHORIZED;
 		break;
 	    } else if (req == REQ_AUTHORIZATION) {
-		char client_session_id[256];
-		if (!recv_authorization(vars->projector, client_session_id, sizeof(client_session_id))) {
+		char client_password[256];
+		if (!recv_authorization(vars->projector, client_password, sizeof(client_password))) {
 		    *vars->status = STATUS_CONNECTION_ERROR;
 		    break;
 		}
-		if (strcmp(vars->session_id, client_session_id)) {
-		    write_log("Wrong password [%s]!\n", client_session_id);
+		if (strcmp(vars->password, client_password)) {
+		    write_log("Wrong password [%s]!\n", client_password);
 		    *vars->status = STATUS_NOT_AUTHORIZED;
 		    send_uint32(vars->projector, 1);
 		    break;
@@ -1007,7 +1045,7 @@ static void *http_thread(void *arg)
 }
 
 int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey,
-		      const char *cert, const char *session_id, int *is_started)
+		      const char *cert, const char *password, const char *session_id, int *is_started)
 {
     int status = STATUS_OK;
     char *scheme = NULL;
@@ -1118,6 +1156,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 	    vars->controlhost = controlhost;
 	    vars->apphost = apphost;
 	    vars->path = path;
+	    vars->password = password;
 	    vars->session_id = session_id;
 	    vars->status = &status;
 
@@ -1161,6 +1200,7 @@ int projector_connect(struct projector_t *projector, const char *controlhost, co
 		.controlhost = controlhost,
 		.apphost = apphost,
 		.path = path,
+		.password = password,
 		.session_id = session_id,
 		.status = &status
 	    };

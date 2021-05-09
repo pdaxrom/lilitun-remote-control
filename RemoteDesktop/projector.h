@@ -16,7 +16,8 @@ enum {
     STATUS_URL_PARSE_ERROR,
     STATUS_URL_SCHEME_UNKNOWN,
     STATUS_URL_PORT_ERROR,
-    STATUS_NOT_AUTHORIZED
+    STATUS_NOT_AUTHORIZED,
+    STATUS_WRONG_SIGNATURE
 };
 
 struct varblock_t {
@@ -52,7 +53,7 @@ extern "C" {
 #endif
 
 struct projector_t *projector_init();
-int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey, const char *cert, const char *session_id, int *is_started);
+int projector_connect(struct projector_t *projector, const char *controlhost, const char *apphost, const char *privkey, const char *cert, const char *password, const char *session_id, int *is_started);
 void projector_finish(struct projector_t *projector);
 
 #ifdef __cplusplus

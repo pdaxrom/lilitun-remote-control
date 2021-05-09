@@ -18,6 +18,7 @@ enum {
     REQ_HOSTNAME,
     REQ_AUTHORIZATION,
     REQ_SIGNATURE,
+    RCV_SIGNATURE,
     REQ_STOP
 };
 

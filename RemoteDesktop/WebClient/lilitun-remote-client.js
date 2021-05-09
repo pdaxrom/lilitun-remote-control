@@ -15,7 +15,8 @@ const Request = {
     REQ_HOSTNAME : 9,
     REQ_AUTHORIZATION : 10,
     REQ_SIGNATURE : 11,
-    REQ_STOP : 12
+    RCV_SIGNATURE : 12,
+    REQ_STOP : 13
 };
 
 const Pix = {
@@ -154,17 +155,20 @@ function bytes_to_string(buf) {
   return String.fromCharCode.apply(null, new Uint8Array(buf));
 }
 
-function send_string(socket, string) {
-    socket.send(htonl(strlen(string)));
-    socket.send(string_to_bytes(string));
-}
-
 function send_password(socket, password) {
     let tmp = new Uint8Array(8);
     tmp.set(htonl(Request.REQ_AUTHORIZATION), 0);
     tmp.set(htonl(strlen(password)), 4);
     socket.send(tmp);
     socket.send(string_to_bytes(password));
+}
+
+function send_signature(socket, signature) {
+    let tmp = new Uint8Array(8);
+    tmp.set(htonl(Request.RCV_SIGNATURE), 0);
+    tmp.set(htonl(strlen(signature)), 4);
+    socket.send(tmp);
+    socket.send(string_to_bytes(signature));
 }
 
 function send_request(socket, request) {
@@ -325,6 +329,8 @@ function start_client(remote_url, password, onerror) {
     socket.onopen = function(e) {
 	console.log("[open] Connection established");
 	console.log("Sending to server");
+
+	send_signature(socket, CLIENT_ID);
 
 	request = Request.REQ_SIGNATURE;
 	state = State.ReadAck;

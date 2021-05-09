@@ -19,6 +19,16 @@
 
 static const char *x_scheme_handler = "lilink://";
 
+const char *server_url = NULL;
+const char *server_privkey = NULL;
+const char *server_cert = NULL;
+char *server_password = NULL;
+
+const char *json_requestType = NULL;
+const char *json_appServerUrl = NULL;
+const char *json_controlServerUrl = NULL;
+const char *json_sessionId = NULL;
+
 #ifdef _WIN32
 static char *strndup(const char *str, size_t n)
 {
@@ -45,11 +55,6 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 
     return -1;
 }
-
-const char *json_requestType = NULL;
-const char *json_appServerUrl = NULL;
-const char *json_controlServerUrl = NULL;
-const char *json_sessionId = NULL;
 
 static int extract_json_params(char *instr)
 {
@@ -103,6 +108,9 @@ static int extract_json_params(char *instr)
 	    i++;
 	} else if (jsoneq(outstr, &t[i], "sessionId") == 0) {
 	    json_sessionId = strndup(outstr + t[i + 1].start, t[i + 1].end - t[i + 1].start);
+	    i++;
+	} else if (jsoneq(outstr, &t[i], "password") == 0) {
+	    server_password = strndup(outstr + t[i + 1].start, t[i + 1].end - t[i + 1].start);
 	    i++;
 	}
     }
@@ -166,11 +174,6 @@ static int register_uri_scheme(char *app)
 }
 #endif
 
-const char *server_url = NULL;
-const char *server_privkey = NULL;
-const char *server_cert = NULL;
-const char *server_session_id = NULL;
-
 static int parse_parameters(int *argc, char **argv[])
 {
     fprintf(stderr, "LINK [%s]\n", (*argv)[1]);
@@ -195,7 +198,7 @@ static int parse_parameters(int *argc, char **argv[])
 	server_url = (*argv)[1];
 	server_privkey = (*argv)[2];
 	server_cert = (*argv)[3];
-	server_session_id = (*argv)[4];
+	server_password = strdup((*argv)[4]);
 
 	*argv = *argv + 4;
 	*argc = *argc - 4;
@@ -274,7 +277,7 @@ int main(int argc, char *argv[])
 
 	if (!json_requestType && !server_url) {
 	    fprintf(stderr, "No parameters, exit...\n");
-	    return 0;
+	    goto exit1;
 	}
 #endif
 
@@ -285,6 +288,12 @@ int main(int argc, char *argv[])
 #ifndef __APPLE__
     }
 #endif
+
+ exit1:
+
+    if (server_password) {
+	free(server_password);
+    }
 
     return 0;
 }

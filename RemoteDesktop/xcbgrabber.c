@@ -206,5 +206,7 @@ void GrabberKeyboardEvent(XGrabber * cfg, int down, uint32_t key)
 	} else {
 	    xcb_test_fake_input(cfg->connection, XCB_KEY_RELEASE, keycode[0], XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
 	}
+
+	free(keycode);
     }
 }
