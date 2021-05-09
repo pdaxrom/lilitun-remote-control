@@ -1,0 +1,3 @@
+[submodule "thirdparty/simple-connection-lib"]
+	path = thirdparty/simple-connection-lib
+	url = git@github.com:pdaxrom/simple-connection-lib.git
