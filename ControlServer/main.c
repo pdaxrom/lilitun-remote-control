@@ -237,14 +237,36 @@ static void *remote_connection_thread(void *arg)
     fprintf(stderr, "websocket path is %s\n", tcp_ws_path(conn->channel));
 
     if (!strcmp(tcp_ws_path(conn->channel), conn->remote_path)) {
+	char *remote_sig = NULL;
 	conn->thread_alive = 0;
 	conn->stop_req = 0;
 
-	pthread_mutex_init(&conn->projector_io_mutex, NULL);
+	if (!do_rcv_signature(conn->channel)) {
+	    fprintf(stderr, "Cannot send signature!\n");
+	} else {
+	    if (!(remote_sig = do_req_signature(conn->channel))) {
+		fprintf(stderr, "Cannot read remote signature!\n");
+	    }
+	}
 
-	pthread_mutex_lock(&remote_connections_list_mutex);
-	list_add_data(&remote_connections_list, conn);
-	pthread_mutex_unlock(&remote_connections_list_mutex);
+	if (!remote_sig || (remote_sig && strcmp(remote_sig, remote_id))) {
+	    fprintf(stderr, "Unsupported remote application [%s]!\n", remote_sig ? remote_sig : "empty");
+	} else if (!(conn->apphost = do_req_appserver_host(conn->channel))) {
+	    fprintf(stderr, "Cannot get application host!\n");
+	} else if (!(conn->session_id = do_req_session_id(conn->channel))) {
+	    fprintf(stderr, "Cannot get session id!\n");
+	} else if (!(conn->hostname = do_req_hostname(conn->channel))) {
+	    fprintf(stderr, "Cannot get hostname!\n");
+	} else {
+	    fprintf(stderr, "App host   : %s\n", conn->apphost);
+	    fprintf(stderr, "Session id : %s\n", conn->session_id);
+	    fprintf(stderr, "Hostname   : %s\n", conn->hostname);
+
+	    pthread_mutex_init(&conn->projector_io_mutex, NULL);
+
+	    pthread_mutex_lock(&remote_connections_list_mutex);
+	    list_add_data(&remote_connections_list, conn);
+	    pthread_mutex_unlock(&remote_connections_list_mutex);
 
 //    if ((conn->type = check_remote_sig(conn->channel))) {
 //      fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
@@ -255,14 +277,47 @@ static void *remote_connection_thread(void *arg)
 //      }
 //    }
 
-	pthread_mutex_lock(&remote_connections_list_mutex);
-	list_remove_data(&remote_connections_list, conn);
-	pthread_mutex_unlock(&remote_connections_list_mutex);
+	    pthread_mutex_lock(&remote_connections_list_mutex);
+	    list_remove_data(&remote_connections_list, conn);
+	    pthread_mutex_unlock(&remote_connections_list_mutex);
 
-	pthread_mutex_destroy(&conn->projector_io_mutex);
+	    pthread_mutex_destroy(&conn->projector_io_mutex);
 
-	fprintf(stderr, "remote connection thread finished!\n");
+	}
+
+	if (remote_sig) {
+	    free(remote_sig);
+	}
     } else if (!strcmp(tcp_ws_path(conn->channel), conn->client_path)) {
+	uint32_t req;
+	uint32_t need = RCV_SIGNATURE;
+	char *client_sig = NULL;
+
+	while (recv_uint32(conn->channel, &req)) {
+	    if (req != need) {
+		fprintf(stderr, "Wrong protocol sequence!\n");
+		break;
+	    }
+	    if (req == RCV_SIGNATURE) {
+		if (!(client_sig = read_string(conn->channel, 32))) {
+		    fprintf(stderr, "Cannot read client signature!\n");
+		    break;
+		}
+		if (strcmp(client_sig, client_id)) {
+		    fprintf(stderr, "Usupported client!\n");
+		    break;
+		}
+	    } else if (req == REQ_SIGNATURE) {
+	    } else if (req == REQ_SESSION_ID) {
+	    } else {
+		fprintf(stderr, "Protocol error, wrong request!\n");
+		break;
+	    }
+	}
+
+	if (client_sig) {
+	    free(client_sig);
+	}
     } else {
 	fprintf(stderr, "Unknown connection!\n");
     }
@@ -282,6 +337,8 @@ static void *remote_connection_thread(void *arg)
     tcp_close(conn->channel);
 
     free(conn);
+
+    fprintf(stderr, "remote connection thread finished!\n");
 
     return NULL;
 }

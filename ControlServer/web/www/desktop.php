@@ -144,7 +144,7 @@ if (!$controlServer) {
 }
 
 $appServer = 'https://'.$appServer."/desktop.php";
-$controlServer = 'wss://'.$controlServer."/projector-ws";
+$controlServer = 'wss://'.$controlServer."/remote-ws";
 
 $dbase->exec("INSERT OR IGNORE INTO Sessions(sessionId, userId, appServer, controlServer) VALUES('$sessionId', '$userId', '$appServer', '$controlServer')");
 $dbase->exec("UPDATE Sessions SET lastTime=strftime('%s', 'now') WHERE userId = '$userId' AND sessionId = '$sessionId'");
