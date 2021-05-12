@@ -30,10 +30,11 @@ function onerror(err, msg) {
 
 function connect() {
     let url = document.getElementById("url").value;
+    let session_id = document.getElementById("session_id").value;
     let password = document.getElementById("password").value;
     document.getElementById("connect").style.display="none";
     document.getElementById("canvas").style.display="block";
-    start_client(url, password, onerror);
+    start_client(url, session_id, password, onerror);
 
     return false;
 }
@@ -48,6 +49,10 @@ function connect() {
 	<div>
 	<label for="url">Remote</label>
 	<input id="url" type="text">
+	</div>
+	<div>
+	<label for="session_id">Session id</label>
+	<input id="session_id" type="text">
 	</div>
 	<div>
 	<label for="password">Password</label>

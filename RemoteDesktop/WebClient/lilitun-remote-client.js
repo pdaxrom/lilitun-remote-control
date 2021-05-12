@@ -171,6 +171,14 @@ function send_signature(socket, signature) {
     socket.send(string_to_bytes(signature));
 }
 
+function send_session_id(socket, session_id) {
+    let tmp = new Uint8Array(8);
+    tmp.set(htonl(Request.REQ_SESSION_ID), 0);
+    tmp.set(htonl(strlen(session_id)), 4);
+    socket.send(tmp);
+    socket.send(string_to_bytes(session_id));
+}
+
 function send_request(socket, request) {
     socket.send(htonl(request));
 }
@@ -215,7 +223,7 @@ function send_input_event(socket, event) {
     }
 }
 
-function start_client(remote_url, password, onerror) {
+function start_client(remote_url, session_id, password, onerror) {
     function mouse_move(e) {
 	mouse_x = e.clientX * (ScreenInfo.width  / win_w);
 	mouse_y = e.clientY * (ScreenInfo.height / win_h);
@@ -351,9 +359,19 @@ function start_client(remote_url, password, onerror) {
 		signature = bytes_to_string(event.data);
 		console.log("Remote signature " + signature);
 
-		request = Request.REQ_AUTHORIZATION;
-		state = State.ReadAck;
-		send_password(socket, password);
+		if (signature == SERVER_ID) {
+		    console.log("Connected to server, send session_id");
+		    send_session_id(socket, session_id);
+
+		    console.log("Switch to remote app");
+		    request = Request.REQ_SIGNATURE;
+		    state = State.ReadAck;
+		    send_request(socket, request);
+		} else {
+		    request = Request.REQ_AUTHORIZATION;
+		    state = State.ReadAck;
+		    send_password(socket, password);
+		}
 	    }
 	} else if (request == Request.REQ_AUTHORIZATION) {
 	    if (state == State.ReadAck) {

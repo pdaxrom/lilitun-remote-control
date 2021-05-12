@@ -339,4 +339,7 @@ esac
 
 if [ "$INSIDE_DOCKER" != "" ]; then
     git clean -f -d
+    pushd thirdparty/simple-connection-lib
+    git clean -f -d
+    popd
 fi

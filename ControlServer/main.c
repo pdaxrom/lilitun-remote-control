@@ -7,6 +7,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/epoll.h>
 
 #ifndef _WIN32
 #include <sys/select.h>
@@ -215,6 +216,79 @@ static int send_user_connection(tcp_channel * channel, int port, int ipv6port)
 
 static void start_remote_app_session(struct remote_connection_t *conn)
 {
+    #define MAX_EVENTS 10
+    struct epoll_event ev, events[MAX_EVENTS];
+    int epoll_fd = epoll_create1(0);
+
+    if(epoll_fd == -1) {
+	fprintf(stderr, "Failed to create epoll file descriptor\n");
+	return;
+    }
+
+    ev.events = EPOLLIN;
+    ev.data.fd = tcp_fd(conn->channel);
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->channel), &ev) == -1) {
+	perror("epoll_ctl: remote socket");
+    } else {
+	int is_running = 1;
+	int client_added = 0;
+	while(is_running) {
+	    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, 500);
+	    if (nfds == -1) {
+		perror("epoll_wait");
+		break;
+	    }
+	    for (int n = 0; n < nfds; ++n) {
+		if (events[n].data.fd == tcp_fd(conn->channel)) {
+		    char buf[65536];
+		    int len;
+		    if ((len = tcp_read(conn->channel, buf, sizeof(buf))) < 1) {
+			fprintf(stderr, "error read from remote app!\n");
+			is_running = 0;
+			break;
+		    }
+		    if (client_added) {
+			if (tcp_write(conn->client_channel, buf, len) != len) {
+			    fprintf(stderr, "Cannot write to client, remove\n");
+			    tcp_close(conn->client_channel);
+			    conn->client_channel = NULL;
+			    client_added = 0;
+			}
+		    }
+		} else if (client_added && events[n].data.fd == tcp_fd(conn->client_channel)) {
+		    char buf[65536];
+		    int len;
+		    if ((len = tcp_read(conn->client_channel, buf, sizeof(buf))) < 1) {
+			fprintf(stderr, "Cannot read from client, remove\n");
+			tcp_close(conn->client_channel);
+			conn->client_channel = NULL;
+			client_added = 0;
+		    } else {
+			if (tcp_write(conn->channel, buf, len) != len) {
+			    fprintf(stderr, "Cannot write remote app\n");
+			    is_running = 0;
+			    break;
+			}
+		    }
+		}
+	    }
+
+	    if (!client_added && conn->client_channel) {
+		ev.events = EPOLLIN;
+		ev.data.fd = tcp_fd(conn->client_channel);
+		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->channel), &ev) == -1) {
+		    perror("epoll_ctl: client socket");
+		} else {
+		    client_added = 1;
+		}
+	    }
+	}
+    }
+
+    if(close(epoll_fd)) {
+	fprintf(stderr, "Failed to close epoll file descriptor\n");
+	return;
+    }
 }
 
 static void start_client_session(struct remote_connection_t *conn)
@@ -224,6 +298,7 @@ static void start_client_session(struct remote_connection_t *conn)
 static void *remote_connection_thread(void *arg)
 {
     struct remote_connection_t *conn = (struct remote_connection_t *)arg;
+    int client_connection = 0;
 
     pthread_detach(pthread_self());
 
@@ -268,21 +343,14 @@ static void *remote_connection_thread(void *arg)
 	    list_add_data(&remote_connections_list, conn);
 	    pthread_mutex_unlock(&remote_connections_list_mutex);
 
-//    if ((conn->type = check_remote_sig(conn->channel))) {
-//      fprintf(stderr, "remote connection thread started, type = %s\n!\n", (conn->type == 1) ? "Remote app" : "Client app");
-//      if (conn->type == 1) {
-//          start_remote_app_session(conn);
-//      } else {
-//          start_client_session(conn);
-//      }
-//    }
+	    //
+	    start_remote_app_session(conn);
 
 	    pthread_mutex_lock(&remote_connections_list_mutex);
 	    list_remove_data(&remote_connections_list, conn);
 	    pthread_mutex_unlock(&remote_connections_list_mutex);
 
 	    pthread_mutex_destroy(&conn->projector_io_mutex);
-
 	}
 
 	if (remote_sig) {
@@ -294,8 +362,9 @@ static void *remote_connection_thread(void *arg)
 	char *client_sig = NULL;
 
 	while (recv_uint32(conn->channel, &req)) {
+	    fprintf(stderr, "Client request %d\n", req);
 	    if (req != need) {
-		fprintf(stderr, "Wrong protocol sequence!\n");
+		fprintf(stderr, "Wrong protocol sequence [%d]!\n", req);
 		break;
 	    }
 	    if (req == RCV_SIGNATURE) {
@@ -307,8 +376,57 @@ static void *remote_connection_thread(void *arg)
 		    fprintf(stderr, "Usupported client!\n");
 		    break;
 		}
+		need = REQ_SIGNATURE;
 	    } else if (req == REQ_SIGNATURE) {
+		int len = strlen(server_id);
+
+		req_hostname data = {
+		    .req = htonl(REQ_SIGNATURE),
+		    .length = htonl(len)
+		};
+
+		if (tcp_write(conn->channel, (char *)&data, sizeof(data)) != sizeof(data)) {
+		    fprintf(stderr, "Connection error!\n");
+		    break;
+		}
+
+		if (tcp_write(conn->channel, server_id, len) != len) {
+    		    fprintf(stderr, "Connection error!\n");
+		    return 0;
+		}
+
+		need = REQ_SESSION_ID;
 	    } else if (req == REQ_SESSION_ID) {
+		char *session_id;
+		if (!(session_id = read_string(conn->channel, 256))) {
+		    fprintf(stderr, "Can't read client session_id!\n");
+		    break;
+		}
+
+		fprintf(stderr, "Client session_id %s\n", session_id);
+
+		pthread_mutex_lock(&remote_connections_list_mutex);
+
+		//
+
+		struct list_item *tmp = remote_connections_list;
+		while(tmp) {
+		    struct remote_connection_t *remote_conn = list_get_data(tmp);
+		    if (!strcmp(remote_conn->session_id, session_id)) {
+			if (remote_conn->client_channel) {
+			    fprintf(stderr, "Remote app already connected to the client!\n");
+			    break;
+			}
+			client_connection = 1;
+			remote_conn->client_channel = conn->channel;
+			break;
+		    }
+		    tmp = list_next_item(tmp);
+		}
+
+		pthread_mutex_unlock(&remote_connections_list_mutex);
+
+		free(session_id);
 	    } else {
 		fprintf(stderr, "Protocol error, wrong request!\n");
 		break;
@@ -334,7 +452,13 @@ static void *remote_connection_thread(void *arg)
 	free(conn->hostname);
     }
 
-    tcp_close(conn->channel);
+    if (!client_connection && conn->client_channel) {
+	tcp_close(conn->client_channel);
+    }
+
+    if (!client_connection) {
+	tcp_close(conn->channel);
+    }
 
     free(conn);
 
