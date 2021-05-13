@@ -225,7 +225,7 @@ static void start_remote_app_session(struct remote_connection_t *conn)
 	return;
     }
 
-    ev.events = EPOLLIN;
+    ev.events = EPOLLIN | EPOLLRDHUP;
     ev.data.fd = tcp_fd(conn->channel);
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->channel), &ev) == -1) {
 	perror("epoll_ctl: remote socket");
@@ -274,7 +274,7 @@ static void start_remote_app_session(struct remote_connection_t *conn)
 	    }
 
 	    if (!client_added && conn->client_channel) {
-		ev.events = EPOLLIN;
+		ev.events = EPOLLIN | EPOLLRDHUP;
 		ev.data.fd = tcp_fd(conn->client_channel);
 		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->client_channel), &ev) == -1) {
 		    perror("epoll_ctl: client socket");
