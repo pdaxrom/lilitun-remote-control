@@ -276,8 +276,10 @@ static void start_remote_app_session(struct remote_connection_t *conn)
 	    if (!client_added && conn->client_channel) {
 		ev.events = EPOLLIN;
 		ev.data.fd = tcp_fd(conn->client_channel);
-		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->channel), &ev) == -1) {
+		if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd(conn->client_channel), &ev) == -1) {
 		    perror("epoll_ctl: client socket");
+		    tcp_close(conn->client_channel);
+		    conn->client_channel = NULL;
 		} else {
 		    client_added = 1;
 		}
@@ -427,6 +429,8 @@ static void *remote_connection_thread(void *arg)
 		pthread_mutex_unlock(&remote_connections_list_mutex);
 
 		free(session_id);
+
+		break;
 	    } else {
 		fprintf(stderr, "Protocol error, wrong request!\n");
 		break;

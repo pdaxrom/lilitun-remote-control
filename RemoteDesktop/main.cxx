@@ -190,8 +190,10 @@ static int parse_parameters(int *argc, char **argv[])
 	write_log("- controlServerUrl : %s\n", json_controlServerUrl);
 	write_log("- sessionId        : %s\n", json_sessionId);
 
-	*argc = *argc - 1;
-	*argv = *argv + 1;
+	server_password = strdup((*argv)[2]);
+
+	*argc = *argc - 2;
+	*argv = *argv + 2;
 
 	return 1;
     } else {
